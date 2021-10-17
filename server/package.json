@@ -1,0 +1,19 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "fs": "0.0.1-security",
+    "node-fetch": "^3.0.0",
+    "simple-peer": "^9.11.0",
+    "wrtc": "^0.4.7"
+  }
+}
