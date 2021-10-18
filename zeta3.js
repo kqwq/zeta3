@@ -1,6 +1,5 @@
 
 
-
 function onData(data) {
   document.querySelector("#msg").innerHTML = `<h1>${data}</h1>`
 }
@@ -11,15 +10,25 @@ function onConnect() {
 /**
  * Error codes: https://github.com/feross/simple-peer#error-codes
  */
-function onError(error) {}
+function onError(error) { }
 function onServerFull(spots) {
   document.querySelector("body").innerHTML = "<h1>Error: Server full. Please try again later.</h1>"
+}
+function onLoadingProgress(percent) {
+  document.querySelector("#msg").innerHTML = `<h1>Loading: ${percent}%</h1>`
+}
+function onSave() {
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-{// Because Oh Noes throws a bunch of errors if variables are redefined in the global scope
+(() => {// Because Oh Noes throws a bunch of errors if variables are redefined in the global scope AND avoid 2 instances from running
 
+  if (parent.saveDetected) { // Avoid 2 instances of program running at the same time
+    console.log('Second instance of program BLOCKED');
+    return
+  }
 
 
   // Link program ID - intermediate program that facilitates connections
@@ -43,45 +52,51 @@ function onServerFull(spots) {
   }
 
   // Detect first manually save
+  var this_ = this;
   if (!window.parent.hasEventListener) {
     window.parent.addEventListener('message', function (e, f, g) {
       if (JSON.parse(e.data).screenshot) {
         console.log('DETECTED');
-        if (saveDetected) {
-          console.log("Double save?");
+        if (parent.saveDetected) {
+          onSave()
+          console.log("Double save - no code executed");
           return
+        } else {
+          // First time saving
+          if (connectionStep == 0) {
+            console.log("Saved too fast! Please press save again.");
+          } else {
+            parent.saveDetected = true
+            initConnectionProcess()
+          }
         }
-        saveDetected = true
-        initConnectionProcess()
       }
     });
     window.parent.hasEventListener = true;
   }
 
-  // Some global vars
-  var saveDetected = false
-  var connectionStep = 0
-  var offerLineNumber = 0
+  // Some semi-global vars
+  parent.saveDetected = false
+  var connectionStep = 0 // 0 = not connected, 1 = connecting, 2 = connected
+  var offerLineNumber = Math.floor(Math.random() * 100) + 1 // Random number (1-100) to prevent conflicts between multiple peers
   var peerSignalData = ""
 
   // Peer setup
-  let peer = new SimplePeer({
-    initiator: false,
+  var peer = new SimplePeer({
+    initiator: true,
     trickle: false
   })
-  let p = 0
   peer.on('signal', data => {
-    peerSignalData = btoa(JSON.stringify({
-      sp: data, p,
-      username: "unknown"
-    })) // Wrap data in base64
-    putCode(`connectionStep=1\nofferLineNumber=${offerLineNumber}\nofferAnswer=` + peerSignalData)
-    saveCode()
+    connectionStep = 1
+    onLoadingProgress(10)
+    peerSignalData = btoa(JSON.stringify(data)) // Wrap data in base64
   })
   peer.on('connect', () => {
+    connectionStep = 2
     console.log('Successfully connected to server')
     peer.send('peer has connected' + Math.random())
     putCode(`connectionStep=2\nofferLineNumber=${offerLineNumber}\n\nYou are connected!`)
+    onLoadingProgress(100)
     onConnect()
   })
   peer.on('data', data => {
@@ -90,77 +105,72 @@ function onServerFull(spots) {
   peer.on('error', error => {
     onError(error)
   })
-  window.sendData = function(data) {
-    peer.send(data)
-  }
-
-  // IP address getter
-  new SimplePeer({
-    initiator: true,
-    trickle: false
-  }).on('signal', function (data) {
-    p = data.sdp.match(/(?<=IP4 ).+/gm)[1]
-    console.log("ipAddress: " + p)
-  })
 
   // Connect to server
-  let connectionInterval
   function initConnectionProcess() {
+    console.log("Init connection ...")
+    onLoadingProgress(5)
+    putCode(`${'\n'.repeat(99)}offerLineNumber=${offerLineNumber}\noffer=` + peerSignalData)
+    saveCode()
+    onLoadingProgress(15)
+    setTimeout(() => {
+
+      console.log('this should run in 5s');
+      if (connectionStep == 1) {
+        console.log('Second save executed if slow network/computer');
+        saveCode()
+        onLoadingProgress(16)
+      }
+    }, 5000) // Wait 2000ms for the code to be saved
+
+
+
     attemptConnection()
+
+
+    console.log('fin');
   }
   function attemptConnection() {
     console.log('Attempting to connect...');
-    if (!saveDetected) { // If save is detected, connect to server
-      console.log("manually blocked connection attempt")
+    onLoadingProgress(6)
+    if (!parent.saveDetected) { // If save is detected, connect to server
+      console.log(this, saveDetected, "???")
+      console.log("Logical error, manually blocked connection attempt. Please try again later.")
       return
     }
-    if (connectionStep == 0) {
-      putCode('connectionStep=0\n' + Math.random())
-      let url = `https://www.khanacademy.org/api/internal/scratchpads/${linkId}?callback=?`
-      parent.$.getJSON(url, data => {
-        let offerLines = data.revision.code.split('\n')
-        let linkLastUpdated = new Date(data.revision.created)
-        let nowDate = new Date()
-        let diff = nowDate - linkLastUpdated
+    let url = `https://www.khanacademy.org/api/internal/scratchpads/${linkId}?callback=?`
+    parent.$.getJSON(url, data => {
+      if (data == null) {
+        console.log("Connection error: Link Program was likely deleted. Please contact Squishy.")
+        return
+      }
+      let linkProgramCode = data.revision.code.split('\n')
+      let linkLastUpdated = new Date(data.revision.created)
+      let nowDate = new Date()
+      let diff = nowDate - linkLastUpdated
+      let diffSeconds = Math.floor(diff / 1000)
+      let diffHours = Math.floor(diff / (1000 * 60 * 60))
 
-        // Only connect if Link Program udpated in the last 45 seconds
-        if (diff > 1000 * 45) {
-          console.log('Link program is not updating. Last updated: ', linkLastUpdated, 'Time diff: ', diff)
-          return
-        }
-        console.log('Link program is in sync. Time diff: ', diff)
-        offerLineNumber = Math.floor(Math.random() * offerLines.length)
-        let j = 0
-        let completelyOccupied = true
-        while (j < offerLines.length) {
-          let serverOffer = offerLines[offerLineNumber]
-          if (serverOffer == "connected") {
-            console.log('Offer line ' + offerLineNumber + " already occupied")
-            offerLineNumber++
-            offerLineNumber = offerLineNumber % offerLines.length
-          } else {
-            completelyOccupied = false
-            break
-          }
-          j ++
-        }
-        if (completelyOccupied) {
-          let oll = offerLines.length
-          console.log(`Server is compmletely full (${oll}/${oll} spots taken). Try again (click save) later.`);
-          onServerFull(oll)
-          return
-        }
-        let serverOffer = offerLines[offerLineNumber]
-        console.log('Replying to offer...', JSON.stringify(serverOffer, null, 2))
-        peer.signal(serverOffer)
-        connectionStep = 1
-        putCode('connectionStep=0.1\n' + Math.random())
-      })
-    } else {
-      console.log("INTERVAL CLEARED")
-      clearInterval(connectionInterval)
-    }
+      // Only connect if Link Program udpated in the last 45 seconds
+      if (diff > 1000 * 45) {
+        console.log('STARTING SERVER... Last updated: ', linkLastUpdated, 'Time diff: ' + diffHours + ' hours')
+      } else {
+        console.log('Link program is in sync. Time diff: ', 'Time diff: ' + diffSeconds + ' seconds')
+      }
+
+      // Detect a signal answer to my offer
+      let serverOffer = linkProgramCode[offerLineNumber - 1]
+      if (!serverOffer || !serverOffer.includes('offerAnswer=')) {
+        console.log("No offer answer detected yet...");
+        setTimeout(attemptConnection, 2000) // Wait 2 seconds and try again
+        return
+      }
+
+      serverOffer = serverOffer.split(/\=(.+)/)[1] // Remove offerAnswer=
+      peer.signal(serverOffer)
+    })
+
   }
 
 
-}
+})()
