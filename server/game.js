@@ -19,6 +19,10 @@ function onPeerDisconnect(peerContext, context) {}
 
 function onPeerData(data, peerContext, context) {
   let send = (d) => peerContext.peer.send(d)
+  if (data == "ping") {
+    send("pong");
+    return;
+  }
   let num = parseInt(data)
   if (isNaN) {
     console.log("Not a number", data);

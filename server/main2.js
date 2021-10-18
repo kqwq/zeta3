@@ -114,9 +114,10 @@ async function scanOriginSpinoffs() {
           console.log(`Peer ${peerObjIndex} connected!`);
           peerData[peerObjIndex].connectionStep = 3
           peerData[peerObjIndex].peer = peer
+          peer.send("confirm connected")
         })
         peer.on('data', data => {
-          onPeerData(data, peerData[peerObjIndex], peerData)
+          onPeerData(data.toString(), peerData[peerObjIndex], peerData)
         })
         peer.on('close', () => {
           console.log(`Peer ${peerObjIndex} closed!`);
