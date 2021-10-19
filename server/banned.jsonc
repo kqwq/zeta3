@@ -1,0 +1,9 @@
+{
+  "kaids": [
+    "kaid_12345678901234567890", // example
+    "kaid_" // Evan Lewis maybe?
+  ],
+  "ips": [
+    "xxx.xxx.xxx.xxx"
+  ]
+}

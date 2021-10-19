@@ -5,19 +5,32 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Client</title>
+  <title>Among Us v2021.10.19</title>
+  <style>
+    html,
+    body {
+      overflow: hidden;
+      margin: 0px;
+    }
+  </style>
 
   <!-- simple-peer -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-peer/9.11.0/simplepeer.min.js"></script>
   <script type>
+    
+    // THIS PROGRAM = PEER PROGRAM  
+    var amongUsSourceId = "5447058873958400" // Among Us game source code
+    var originId = "6511200389087232" // Origin program ID
+    parent.originId = originId
+    var linkId = "4601216252297216" // Link program ID - intermediate program that facilitates connections
+    var zeta3Id = "does not work" // <-- Program ID of zeta3 source code
 
     /**
      * Zeta 3 Import
      */
-    var zeta3Id = "" // <-- Program ID of zeta3 source code
     if (parent.zetaStep == undefined) {
       parent.sendQueue = []
-      parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${zeta3Id}?callback=?`, $ => eval($['revision'].code));
+      // parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${zeta3Id}?callback=?`, $ => eval($['revision'].code)); // Doesn't work yet
     }
     var sendTo = (recipient, data) => {
       parent.sendQueue.push({ recipient, data })
@@ -30,7 +43,7 @@
       /**
        * Connection progress (out of 100) when connecting to the server
        * @param {number} progress
-       * if number is < 20, initializing is in progress
+       * if number is < 20, initialization is in progress
        * if number is == 20, connection may take up to 20 seconds
        * if number is == 50, connection may take up to 5 seconds
        * if number is == 100, connection is established
@@ -43,8 +56,8 @@
        * Called when connection is established
        */
       onConnect: function () {
-        document.querySelector("#msg").innerHTML = `<h1>Connected</h1>`
-
+        // Load the game (among us)
+        parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${amongUsSourceId}?callback=?`, $ => parent.putCode($['revision'].code));
       },
 
       /**
@@ -55,20 +68,29 @@
        * @param {string} data
        */
       onData: function (sender, data) {
-        document.querySelector("#msg").innerHTML = `<h1>${sender} sent ${data}</h1>`
+        console.log("Received data from " + sender + ": " + data);
       },
 
       /** 
        * Called when user saves the program after the initial save (has no effect on the state of the program)
        */
-      onUselessSafe: function () {
-        alert("Saving doesn't do anything at this state.")
+      onUselessSave: function () {
+        let restoreOriginalCode = confirm("Exit Among Us?")
+        if (restoreOriginalCode) {
+          parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${parent.originId}?callback=?`, $ => {
+            parent.peer.destroy()
+            parent.putCode($['revision'].code)
+            parent.saveCode()
+            alert("Exited Among Us. To reconnect, reload this page.")
+          });
+        }
       },
 
       /**
        * Called when connection is lost, either by the server or by the client (this program)
        */
       onDisconnect: function () {
+        // Replaced by AU src code
       },
 
       /**
@@ -79,6 +101,7 @@
        *  or a simple-peer error (https://github.com/feross/simple-peer#error-codes)
        */
       onError: function (err) {
+        // Replaced by AU src code
         console.error(err)
       },
     }
@@ -119,8 +142,6 @@
       }
 
 
-      // Link program ID - intermediate program that facilitates connections
-      var linkId = "4601216252297216"
 
 
       /**
@@ -130,6 +151,7 @@
       function putCode(code) {
         top.postMessage(JSON.stringify({ code }), "*")
       }
+      parent.putCode = putCode
 
       /**
        * Saves program (user input not necessary)
@@ -138,6 +160,7 @@
       function saveCode() {
         top.postMessage("data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==", "*");
       }
+      parent.saveCode = saveCode
 
       // Detect first manually save
       if (!window.parent.hasEventListener) {
@@ -153,7 +176,7 @@
                 initConnectionProcess()
                 break;
               default:
-                console.log("Save detected on zeta step " + parent.zetaStep);
+                pz3.onUselessSave()
                 break;
             }
           }
@@ -284,23 +307,23 @@
     })()
 
 
-  </script>
+  </script> <!-- End of Zeta3 -->
+
+
 </head>
 
 <body>
-  <h1 id="msg">Guess the number. Click to save button to play. If no save button is shown, create a spin-off first.</h1>
-  <input type="text" placeholder="Guess" id="in"><label for="in">Message</label>
-  <button onclick="sendToServer()">Send</button>
-  <script>
-    function sendToServer() {
-      window.sendData(document.getElementById("in").value);
-      console.log("Sent: " + document.getElementById("in").value);
-    }
+  <canvas id="canvas"></canvas>
+  <script src="https://cdn.jsdelivr.net/processing.js/1.4.8/processing.min.js"></script><!-- Processing.js -->
+  <div id="connect-online-alert"
+    style="display:none;background-color:rgba(240, 240, 240, 0.9);padding:20px;border-radius:5px;position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);margin-right:-50%;font-family:monospace">
+    <h3>Follow these steps to connect online:</h3>
+    <ol>
+      <li>Create a spin-off of the original program</li>
+      <li>Save your spin-off</li>
+    </ol>
+  </div>
 
-
-
-
-  </script>
 </body>
 
 </html>

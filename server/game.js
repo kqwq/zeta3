@@ -2,12 +2,41 @@
 
 
 const settings = {
-  guessesReset: 7,
-  biggestNumber: 100,
+  maxPlayersPerRoom: 12,
+  maxImpostorsPerRoom: 3,
+  
 };
 let game = {
   number: 0,
   guesses: 0,
+  playerData: [/*
+    {
+      id: "1234567890123456", // program id
+      kaid: "", // kaid
+      username: "", // ka username
+
+      x: 0,
+      y: 0,
+      isImpostor: false,
+      isSpectator: false,
+      tasks: [], // Array<string> of task ids
+      
+      
+
+    */],
+  rooms: [/*
+    {
+      id: "0.5239403241290", // room id
+      hostPlayerId: "1234567890123456", // host player id (program id)
+      name: "", // room name
+      players: [], // Array<string> players in room (program ids)
+      settings: {
+        maxPlayers: 12,
+        impostors: 2,
+        playerSpeed: 0.1,
+      },
+    }
+  */]
 };
 
 function onPeerConnect(peerContext, context) {
@@ -15,7 +44,9 @@ function onPeerConnect(peerContext, context) {
   game.guesses = settings.guessesReset;
   game.number = Math.floor(Math.random() * settings.biggestNumber) + 1
 }
-function onPeerDisconnect(peerContext, context) {}
+function onPeerDisconnect(peerContext, context) {
+
+}
 
 function onPeerData(data, peerContext, context) {
   let send = (d) => {
@@ -48,6 +79,15 @@ function onPeerData(data, peerContext, context) {
     return;
   }
 
+  // Join a room
+  if (data == "!join") {
+    let roomId = data.split(" ")[1]
+    // Get number of players in that room
+
+    peerData.game.room = roomId
+    return
+  }
+
   let num = parseInt(data)
   if (isNaN(num)) {
     console.log("Not a number", data);
@@ -64,4 +104,4 @@ function onPeerData(data, peerContext, context) {
 
 }
 
-export { onPeerConnect, onPeerData,onPeerDisconnect }
+export { onPeerConnect, onPeerData, onPeerDisconnect }
