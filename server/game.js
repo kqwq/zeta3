@@ -23,8 +23,12 @@ function onPeerData(data, peerContext, context) {
     send("pong");
     return;
   }
+  if (data == "pong") {
+    send("ping");
+    return;
+  }
   let num = parseInt(data)
-  if (isNaN) {
+  if (isNaN(num)) {
     console.log("Not a number", data);
     return
   }

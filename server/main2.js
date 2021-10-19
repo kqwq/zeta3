@@ -43,12 +43,12 @@ let peerData = [
 async function scanOriginSpinoffs() {
   // Clean up disconnected peers
   for (let i = peerData.length - 1; i >= 0; i--) {
-    if (peerData[i]?.peer?.destroyed || peerData[i].connectionStep == 0) {
+    if (!peerData[i].peer || peerData[i].connectionStep == 0) {
       peerData.splice(i, 1)
     }
   }
   if (peerData.length == 0) {
-    ///activeMode = false  /// todo uncomment
+    activeMode = false  /// todo uncomment
   } else {
     activeMode = true
   }
@@ -62,8 +62,8 @@ async function scanOriginSpinoffs() {
     let dateNow = new Date()
     let timeDiff = Math.abs(dateNow.getTime() - dateUpdated.getTime())
 
-    // If time difference is less than 35 seconds, read its code //todo change to 35000
-    if (timeDiff < 8000) {
+    // If time difference is less than 25 seconds, read its code
+    if (timeDiff < 25000) {
       let spinoffId = scratchpad.url.slice(-16)
       console.log(`Found a spinoff! id:${spinoffId}`);
       
@@ -225,8 +225,8 @@ var activeMode = true
 var cycleN = 0
 scanOriginSpinoffs()
 setInterval(() => {
-  if (activeMode || cycleN % 6 === 0) {
+  if (activeMode || cycleN % 4 === 0) {
     scanOriginSpinoffs()
   }
   cycleN++
-}, 5000) // Check for new spinoffs every 5 seconds (active) or 30 seconds (inactive)
+}, 5000) // Check for new spinoffs every 5 seconds (active) or 20 seconds (inactive)
