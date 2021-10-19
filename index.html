@@ -12,6 +12,18 @@
   <script type>
 
     /**
+     * Zeta 3 Import
+     */
+    var zeta3Id = "" // <-- Program ID of zeta3 source code
+    if (parent.zetaStep == undefined) {
+      parent.sendQueue = []
+      parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${zeta3Id}?callback=?`, $ => eval($['revision'].code));
+    }
+    var sendTo = (recipient, data) => {
+      parent.sendQueue.push({ recipient, data })
+    };
+
+    /**
      * Zeta 3 Interface
      */
     parent.zeta3 = {
@@ -36,10 +48,14 @@
       },
 
       /**
-       * Called when data is received from the server
+       * Called when data is received from the server. Opposite of sendTo(recipient, data)
+       * @param {string} sender Either
+       * "server" if the data is from the server
+       * 16-digit id if the data is sent from another program (e.g. "1234567890123456")
+       * @param {string} data
        */
-      onData: function (data) {
-        document.querySelector("#msg").innerHTML = `<h1>${data}</h1>`
+      onData: function (sender, data) {
+        document.querySelector("#msg").innerHTML = `<h1>${sender} sent ${data}</h1>`
       },
 
       /** 
@@ -66,15 +82,16 @@
         console.error(err)
       },
     }
+
     /**
-     * Zeta 3 Import
+     * sendTo(recipient, data)
+     * Send data to the recipient. If called before connection is established, the data is pushed to a queue and sent when connection is established.
+     * @param {string} recipient Either
+     * "server" if the data is from the server
+     * 16-digit id if the data is sent from another program (e.g. "1234567890123456")
+     * @param {string} data Cannot start with "~"
      */
-    var zeta3Id = "" // <-- Program ID of zeta3 source code
-    if (parent.zetaStep == undefined) parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${zeta3Id}?callback=?`, $ => eval($['revision'].code));
-
-
-
-
+    sendTo("server", "Connection established! " + Math.random()); // TODO remove this example
 
 
 
@@ -96,6 +113,7 @@
 
 
       if (parent.zetaStep == 3) { // Avoid running the wrong instance
+        sendTo = parent.sendTo
         console.log('Third instance of zeta3 BLOCKED');
         return
       }
@@ -147,6 +165,17 @@
         // Some semi-global vars
         parent.offerLineNumber = Math.floor(Math.random() * 100) + 1 // Random number (1-100) to prevent conflicts between multiple peers
         parent.peerSignalData = ""
+        parent.sendTo = (recipient, data) => {
+          let message
+          if (!data) { // If no recipient is provided, assume it's to the server
+            message = recipient
+          } else if (recipient == "server") {
+            message = data
+          } else {
+            message = `~${recipient}${data}`
+          }
+          parent.peer.send(message)
+        }
 
         // Peer setup
         parent.peer = new SimplePeer({
@@ -164,8 +193,18 @@
           putCode(`You are connected!`)
           pz3.onLoadingProgress(100)
           pz3.onConnect()
+          // Fix send queue
+          sendTo = parent.sendTo
+          parent.sendQueue.forEach(({ recipient, data }) => {
+            sendTo(recipient, data)
+          })
         }).on('data', data => {
-          pz3.onData(data)
+          data = data.toString()
+          if (data[0] == "~") {
+            pz3.onData(data.slice(-16), data.slice(1, -16))
+          } else {
+            pz3.onData('server', data)
+          }
         }).on('error', error => {
           pz3.onError(error)
         }).on('close', () => {

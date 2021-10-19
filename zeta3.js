@@ -1,3 +1,94 @@
+/**
+    * Zeta 3 Import
+    */
+var zeta3Id = "" // <-- Program ID of zeta3 source code
+if (parent.zetaStep == undefined) {
+  parent.sendQueue = []
+  parent.$.getJSON("https://ww" + `w.khanacadem${`y.o`}rg/api/labs/scratchpads/${zeta3Id}?callback=?`, $ => eval($['revision'].code));
+}
+var sendTo = (recipient, data) => {
+  parent.sendQueue.push({ recipient, data })
+};
+
+/**
+ * Zeta 3 Interface
+ */
+parent.zeta3 = {
+  /**
+   * Connection progress (out of 100) when connecting to the server
+   * @param {number} progress
+   * if number is < 20, initializing is in progress
+   * if number is == 20, connection may take up to 20 seconds
+   * if number is == 50, connection may take up to 5 seconds
+   * if number is == 100, connection is established
+   */
+  onLoadingProgress: function (percent) {
+    console.log("Loading progress: " + percent + "%");
+  },
+
+  /**
+   * Called when connection is established
+   */
+  onConnect: function () {
+    document.querySelector("#msg").innerHTML = `<h1>Connected</h1>`
+
+  },
+
+  /**
+   * Called when data is received from the server. Opposite of sendTo(recipient, data)
+   * @param {string} sender Either
+   * "server" if the data is from the server
+   * 16-digit id if the data is sent from another program (e.g. "1234567890123456")
+   * @param {string} data
+   */
+  onData: function (sender, data) {
+    document.querySelector("#msg").innerHTML = `<h1>${sender} sent ${data}</h1>`
+  },
+
+  /** 
+   * Called when user saves the program after the initial save (has no effect on the state of the program)
+   */
+  onUselessSafe: function () {
+    alert("Saving doesn't do anything at this state.")
+  },
+
+  /**
+   * Called when connection is lost, either by the server or by the client (this program)
+   */
+  onDisconnect: function () {
+  },
+
+  /**
+   * Called when there is a connection error
+   * Code name is err.code and will be one of the following:
+   * Either LINK_NOT_FOUND (interface deleted), 
+   *        LINK_UNRESPONSIVE (interface not reading and responding to your code changes),
+   *  or a simple-peer error (https://github.com/feross/simple-peer#error-codes)
+   */
+  onError: function (err) {
+    console.error(err)
+  },
+}
+
+/**
+ * sendTo(recipient, data)
+ * Send data to the recipient. If called before connection is established, the data is pushed to a queue and sent when connection is established.
+ * @param {string} recipient Either
+ * "server" if the data is from the server
+ * 16-digit id if the data is sent from another program (e.g. "1234567890123456")
+ * @param {string} data Cannot start with "~"
+ */
+sendTo("server", "Connection established! " + Math.random()); // TODO remove this example
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 (() => {// Because Oh Noes throws a bunch of errors if variables are redefined in the global scope AND avoid 2 instances from running
 
   var pz3 = parent.zeta3
@@ -9,11 +100,12 @@
   1 = peer signal generated, save now
   2 = (INSTANCE 2) attempt connection every 2 seconds
   3 = fully connected, do not tamper with code
-
+ 
   */
 
 
   if (parent.zetaStep == 3) { // Avoid running the wrong instance
+    sendTo = parent.sendTo
     console.log('Third instance of zeta3 BLOCKED');
     return
   }
@@ -65,6 +157,17 @@
     // Some semi-global vars
     parent.offerLineNumber = Math.floor(Math.random() * 100) + 1 // Random number (1-100) to prevent conflicts between multiple peers
     parent.peerSignalData = ""
+    parent.sendTo = (recipient, data) => {
+      let message
+      if (!data) { // If no recipient is provided, assume it's to the server
+        message = recipient
+      } else if (recipient == "server") {
+        message = data
+      } else {
+        message = `~${recipient}${data}`
+      }
+      parent.peer.send(message)
+    }
 
     // Peer setup
     parent.peer = new SimplePeer({
@@ -82,8 +185,18 @@
       putCode(`You are connected!`)
       pz3.onLoadingProgress(100)
       pz3.onConnect()
+      // Fix send queue
+      sendTo = parent.sendTo
+      parent.sendQueue.forEach(({ recipient, data }) => {
+        sendTo(recipient, data)
+      })
     }).on('data', data => {
-      pz3.onData(data)
+      data = data.toString()
+      if (data[0] == "~") {
+        pz3.onData(data.slice(-16), data.slice(1, -16))
+      } else {
+        pz3.onData('server', data)
+      }
     }).on('error', error => {
       pz3.onError(error)
     }).on('close', () => {

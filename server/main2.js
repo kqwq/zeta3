@@ -66,7 +66,7 @@ async function scanOriginSpinoffs() {
     if (timeDiff < 25000) {
       let spinoffId = scratchpad.url.slice(-16)
       console.log(`Found a spinoff! id:${spinoffId}`);
-      
+
       // Check if program is already in peerData
       let peerObjIndex = peerData.findIndex(x => x.scratchpad.id == spinoffId)
       if (peerObjIndex != -1) {
@@ -117,7 +117,20 @@ async function scanOriginSpinoffs() {
           peer.send("confirm connected")
         })
         peer.on('data', data => {
-          onPeerData(data.toString(), peerData[peerObjIndex], peerData)
+          data = data.toString()
+          if (data[0] == "~") { // If intended to a specific peer
+            let srcId = peerData[peerObjIndex].scratchpad.id
+            let programId = data.slice(1, 17)
+            let message = data.slice(17)
+            let peerIndex = peerData.findIndex(x => x.scratchpad.id == programId)
+            if (peerIndex != -1) {
+              peerData[peerIndex].peer.send(`~${message}${srcId}`) // Reversed format to avoid confusion with client-to-server messages
+            } else {
+              console.log(`Received data from program ${srcId} directed to ${programId} but it is not in peerData. Message: ` + message);
+            }
+          } else {
+            onPeerData(data, peerData[peerObjIndex], peerData)
+          }
         })
         peer.on('close', () => {
           console.log(`Peer ${peerObjIndex} closed!`);
@@ -198,7 +211,7 @@ async function updateLinkProgram() {
     return
   }
   let newCode = signalAnswerList.join('\n')
-  
+
   // Create link program
   let linkId = getConfig('link_id')
   let existingProgram
