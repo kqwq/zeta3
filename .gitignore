@@ -2,4 +2,4 @@
 .env
 server/ipdb.json
 core/src/fonts
- 
+core/dist/bundle.js # use core/src/prod.js instead
