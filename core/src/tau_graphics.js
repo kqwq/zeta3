@@ -6500,7 +6500,7 @@ var imgSource = {
     img.strokeWeight(3);
     img.stroke(255, 255, 255);
     img.strokeWeight(5);
-    var f = p5.loadFont("cursive");
+    //var f = p5.loadFont("cursive");
     //!font//p5.textFont(f);
     img.textSize(21);
     img.fill(255, 255, 255);
