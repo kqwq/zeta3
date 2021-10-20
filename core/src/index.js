@@ -4,7 +4,7 @@ import Loader from './tau_graphics'
 
 document.body.style.margin = 0;
 
-new p5(sketch);
+new p5(sketch, 'canvas');
 function sketch(p5) {
 
   var font
