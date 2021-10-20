@@ -1,0 +1,11 @@
+/*! p5.js v1.4.0 June 29, 2021 */
+
+//!font//p5.textFont(f);
+
+//!font//p5.textFont(p5.loadFont("Arial Bold"));
+
+//!font//p5.textFont(p5.loadFont("Sans-serif"));
+
+//!font//p5.textFont(p5.loadFont("cursive", 8));
+
+//!font//p5.textFont(p5.loadFont("monospace"));
