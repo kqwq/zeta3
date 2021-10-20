@@ -8,10 +8,10 @@ module.exports = {
     path: __dirname + '/dist',
     filename: 'bundle.js',
   },  
-  plugins: [
-    new HtmlWebpackPlugin({
-      title: 'Among Us KA',
-    })
-  ]
+  // plugins: [
+  //   new HtmlWebpackPlugin({
+  //     title: 'Among Us KA',
+  //   })
+  // ],
  
 };

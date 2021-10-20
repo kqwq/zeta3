@@ -1,10 +1,10 @@
-import p5 from 'p5';
+//import p5 from 'p5';
 import Loader from './tau_graphics'
 
 
 document.body.style.margin = 0;
 
-new p5(sketch, 'canvas');
+new p5(sketch);
 function sketch(p5) {
 
   var font
@@ -46,7 +46,7 @@ function sketch(p5) {
     p5.createCanvas(p5.windowWidth, p5.windowHeight);
 
 
-    // Please reset to this state after setting p5.rectMode(), p5.textAlign(), or p5.stroke()
+    // Please reset to this state after setting p5.rectMode(), textAlign, or p5.stroke()
     p5.rectMode(p5.CENTER);
     p5.textAlign(p5.CENTER, p5.CENTER);
     p5.noStroke();
@@ -878,7 +878,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     this.reportRange = 40;
   };
   Bean.prototype.localControls = function () {
-    // Key controls
+    // Key controls 
     this.speedMultiplier = 0;
     if (keys[p5.LEFT] || keys[65]) {
       this.speedMultiplier = 1;
@@ -1256,7 +1256,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       if (loadIndex >= imgKeys.length) { // If all graphics are done loading
 
         // Delete every canvas
-        document.querySelectorAll('body>canvas')
+        document.querySelectorAll('body>:not(.p5Canvas)')
           .forEach(function (canvas) {
             canvas.parentNode.removeChild(canvas);
           });
@@ -1712,6 +1712,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
   var loadIndex = 0;
   var imgKeys;
   p5.draw = () => {
+    
     p5.cursor(p5.ARROW);
 
     switch (scene) {
