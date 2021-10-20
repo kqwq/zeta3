@@ -3,7 +3,10 @@ import Loader from './tau_graphics'
 
 
 document.body.style.margin = 0;
+document.body.style.overflow = 'hidden';
 
+
+ 
 new p5(sketch);
 function sketch(p5) {
 
