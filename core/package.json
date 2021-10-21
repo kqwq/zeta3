@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "dev": "webpack --watch --mode development",
-    "prod": "webpack --mode production"
+    "dev": "webpack --watch --mode development ",
+    "prod": "webpack --mode production",
+    "serve": "live-server --open=dist --watch=dist"
   },
   "author": "",
   "license": "ISC",

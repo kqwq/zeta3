@@ -5,13 +5,157 @@ import Loader from './tau_graphics'
 document.body.style.margin = 0;
 document.body.style.overflow = 'hidden';
 
+// Peer setup
+let isKhanAcademy = (window.parent != window);
+window.parent = {
+  zeta3: {
+    onLoadingProgress: () => { },
+    onConnect: window.parent?.zeta3?.onConnect,
+    onData: (sender, data) => {
+      let commandName = data.split(" ")[0]
+      let commandArg = data.substring(commandName.length + 1)
+      if (sender === "server") {
+        handleServerCommand(commandName, commandArg)
+      } else {
+        handlePeerCommand(sender, commandName, commandArg)
+      }
+    },
+    onUselessSave: window.parent?.zeta3?.onUselessSave,
+    onDisconnect: () => { },
+    onError: () => {
+      console.error(err)
+    },
+  }
+}
 
- 
+if (!isKhanAcademy) { // Only run if off khanacademy.org
+  window.mi = s => parent.peer.signal(s)
+  console.log('Off-KA version detected, loading SimplePeer, sendTo');
+  if (!parent.browserUsername) {
+    parent.browserUsername = /*prompt('Enter a username:') || */Math.random().toString(36).substring(7);
+    // Remove non-alpha-numeric characters
+    parent.browserUsername = parent.browserUsername.replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+
+
+  parent.peer = new SimplePeer({
+    initiator: true,
+    trickle: false
+  }).on('signal', data => {
+    parent.peerSignalData = btoa(JSON.stringify(data)) // Wrap data in base64
+    console.log(parent.peerSignalData + "\n" + parent.browserUsername);
+  }).on('connect', () => {
+    parent.isConnected = true;
+    console.log('Successfully connected to server')
+    parent.send = (data) => peer.send(data)
+    parent.peer.send('peer has connected' + Math.random())
+  }).on('data', data => {
+    data = data.toString()
+    if (data[0] == "~") {
+      parent.zeta3.onData(data.slice(-16), data.slice(1, -16))
+    } else {
+      parent.zeta3.onData('server', data)
+    }
+  }).on('error', error => {
+    console.log(error);
+  }).on('close', () => {
+    parent.isConnected = true;
+    console.log('Connection closed');
+  })
+
+  parent.sendTo = (recipient, data) => {
+    let message
+    if (!data) { // If no recipient is provided, assume it's to the server
+      message = recipient
+    } else if (recipient == "server") {
+      message = data
+    } else {
+      message = `~${recipient}${data}`
+    }
+    parent.peer.send(message)
+  }
+}
+
+const sendTo = parent.sendTo;
+
+function handlePeerCommand(senderId, commandName, commandArg) {
+  switch (commandName) {
+    case "ping":
+      sendTo(senderId, "pong")
+      break;
+    case "chat":
+      parent.browserColor = commandArg
+      break;
+    case "setBackground":
+      parent.browserBackground = commandArg
+      break;
+    case "setFont":
+      parent.browserFont = commandArg
+      break;
+    default:
+      console.log(`Unrecognized peer command from id:${senderId}`, commandName, commandArg)
+  }
+}
+
+function handleServerCommand(commandName, commandArg) {
+  console.log(commandName, commandArg);
+  switch (commandName) {
+    case "ping":
+      sendTo(senderId, "pong")
+      break;
+    case "cheating":
+      alert("You have been flagged for cheating")
+      scene = "menu"
+      parent.peer.destroy()
+      // Destroy environment and notify player of cheating
+      putCode('<!DOCTYPE html><html><head><title>Error</title></head><body><img src="https://upload.wikimedia.org/wikipedia/commons/9/96/Farm-Fresh_server_error.png"><br><p>Possible cheating detected</p></body></html>')
+      break;
+    case "set-profile":
+      myProfile = JSON.parse(commandArg)
+      break;
+    case "set-profiles":
+      profiles = JSON.parse(commandArg)
+      break;
+    case "set-room":
+      room = JSON.parse(commandArg)
+      if (scene == "online") {
+        scene = "initGame"
+      }
+      break;    
+    case "set-rooms":
+      rooms = JSON.parse(commandArg)
+      break;
+    default:
+      console.log("Unrecognized server command: " + commandName, commandArg)
+  }
+}
+
+
+
+////////////////////////////////////////
+  /* Global multiplayer variables */
+  var scene = "loading"
+  var waitingForServer = false;
+  var room = {}; // Room the player is in
+  var rooms = []; // All rooms in the game
+  var myProfile = {}; // Player's profile
+  var profiles = []; // All players' profiles in the game
+
+  // debugging
+  var codeEval = ""
+
+
+
+
+
+/////////////////////////////////
+
 new p5(sketch);
 function sketch(p5) {
 
   var font
-  p5.preload = () => { 
+  p5.preload = () => {
     font = {
       button: "Arial",
       title: "Arial",
@@ -40,7 +184,7 @@ function sketch(p5) {
     drawCharacterBody = srcCode.drawCharacterBody;
     joffreyText = srcCode.joffreyText;
     pixelText = srcCode.pixelText;
-    
+
 
 
 
@@ -92,50 +236,63 @@ function sketch(p5) {
       p5.color(36, 169, 190),
     ];
 
-    
-  /** Camera **/
-  cam = { // Camera variables
-    /*
-      Use coordinate(s) to refer to in-game coordinates.
-      Use position to refer to mouse position on the p5.canvas or relative placement.
-      It's OK to say "Player 1 is at the same position as player 2".
-      Bad:  "Player 3's starting position is (760, -45)"
-      Good: "Player 3's starting coords are (760, -45)"
-    */
-    ht: globalHt, // ht = p5.height, the number of p5.pixels high the p5.camera is from the ground
-    gotoHt: globalHt, // Used for the p5.smooth effect when zooming with the mouse scroll
-    x: 10, // X coordinate of p5.camera
-    y: 10, // Y coordinate of p5.camera
-    hw: p5.width / 2, // hw = half p5.width of p5.canvas
-    hh: p5.height / 2 // hh = half p5.height of p5.canvas
-  };
 
-  /* Buttons */
-  new Button("menu", // Shown on this scene
-  " SINGLEPLAYER", // Button name
-  p5.width / 2, // Middle X-coordinate
-  265, // Middle Y-coordinate
-  250, // Button p5.width
-  60, // Button p5.height
-  function () {
-    scene = "pregame";
-  } // Call this when button is pressed
-);
-new Button("menu", " How to play", p5.width / 2 - 110, 334, 200, 50, function () {
-  scene = "howto";
-});
-new Button("menu", "    Credits", p5.width / 2 + 110, 334, 200, 50, function () {
-  scene = "credits";
-});
-new Button("howto", "Return", p5.width / 2, p5.height - 70, 200, 50, function () {
-  scene = "menu";
-});
-new Button("credits", "Return", p5.width / 2, p5.height - 70, 200, 50, function () {
-  scene = "menu";
-});
-new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
-  scene = "help";
-});
+    /** Camera **/
+    cam = { // Camera variables
+      /*
+        Use coordinate(s) to refer to in-game coordinates.
+        Use position to refer to mouse position on the p5.canvas or relative placement.
+        It's OK to say "Player 1 is at the same position as player 2".
+        Bad:  "Player 3's starting position is (760, -45)"
+        Good: "Player 3's starting coords are (760, -45)"
+      */
+      ht: globalHt, // ht = p5.height, the number of p5.pixels high the p5.camera is from the ground
+      gotoHt: globalHt, // Used for the p5.smooth effect when zooming with the mouse scroll
+      x: 10, // X coordinate of p5.camera
+      y: 10, // Y coordinate of p5.camera
+      hw: p5.width / 2, // hw = half p5.width of p5.canvas
+      hh: p5.height / 2 // hh = half p5.height of p5.canvas
+    };
+
+    /* Buttons */
+    new Button("menu", // Shown on this scene
+      "   Freeplay", // Button name
+      p5.width / 2 - 115, // Middle X-coordinate
+      265, // Middle Y-coordinate
+      210, // Button p5.width
+      60, // Button p5.height
+      function () {
+        initGame();
+      } // Call this when button is pressed
+    );
+    new Button("menu", "    Online", p5.width / 2 + 110, 265, 220, 60, function () {
+      mouseJustPressed = false;
+      scene = "online";
+    });
+    new Button("menu", " How to play", p5.width / 2 - 115, 334, 210, 50, function () {
+      scene = "howto";
+    });
+    new Button("menu", "     Credits", p5.width / 2 + 110, 334, 220, 50, function () {
+      scene = "credits";
+    });
+    new Button("howto", "Return", p5.width / 2, p5.height - 70, 200, 50, function () {
+      scene = "menu";
+    });
+    new Button("credits", "Return", p5.width / 2, p5.height - 70, 200, 50, function () {
+      scene = "menu";
+    });
+    new Button("online", "  Back", 80, 50, 90, 40, function() {
+      scene = "menu";
+
+    });
+    new Button("online", " Refresh", 185, 50, 95, 40, function() {
+      waitingForServer = true
+      sendTo("rooms")
+    });
+    new Button("online", "  Host", 290, 50, 88, 40, function() {
+      waitingForServer = true
+      sendTo("create-room {}")
+    });
   }
 
 
@@ -168,12 +325,11 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
   var debugM = false; // Enables zoom and makes `Player.seen` visible above each player.
   var debugX = []; // Positions of the cyan markers for coding the p5.map. Only used in debug mode
   var debugY = [];
-  var scene = "loading";
   var gMouseX = 0; // Mouse X position in game coordinates
   var gMouseY = 0; // Mouse Y position in game coordinates
   p5.mouseIsPressed = false;
 
-  var rooms = [];
+  var mapRooms = [];
   var colliders = [];
   var players = []; // Array of `Bean` (player) objects
   var me;
@@ -476,8 +632,8 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     };
   };
 
-  var Room = function (type, x, y, w, h) { /// Old code, delete ASAP
-    rooms.push(this);
+  var RoomOutline = function (type, x, y, w, h) { /// Old code, delete ASAP
+    mapRooms.push(this);
     this.names = [];
     if (type.includes("-")) {
       var types = type.split("-");
@@ -609,7 +765,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
         this.vertices = vs;
         break;
 
-      case "p5.square":
+      case "square":
         this.vertices = [{
           x: x2,
           y: y1
@@ -768,8 +924,8 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     this.drawWalls = function () { };
   };
 
-  var RoomNew = function (imageName, wallData, collisionData) {
-    rooms.push(this);
+  var MapRoom = function (imageName, wallData, collisionData) {
+    mapRooms.push(this);
     this.authors = [];
     this.imageName = imageName;
     this.image = img[imageName];
@@ -780,7 +936,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     this.addCollisions(collisionData);
     return this;
   };
-  RoomNew.prototype.addAuthor = function (authorOrAuthors) {
+  MapRoom.prototype.addAuthor = function (authorOrAuthors) {
     let author = authorOrAuthors;
     if (typeof author === "string") {
       this.authors.push(author);
@@ -788,9 +944,9 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       this.authors = this.authors.concat(author);
     }
   };
-  RoomNew.prototype.addTask = function () { };
-  RoomNew.prototype.addVent = function () { };
-  RoomNew.prototype.addWalls = function (wallData) {
+  MapRoom.prototype.addTask = function () { };
+  MapRoom.prototype.addVent = function () { };
+  MapRoom.prototype.addWalls = function (wallData) {
     var wd = wallData;
     if (!wd) return;
     var wds = wd.split(" ");
@@ -807,7 +963,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       this.walls.push(wallSection);
     }
   };
-  RoomNew.prototype.addCollisions = function (collisionData) {
+  MapRoom.prototype.addCollisions = function (collisionData) {
     var cd = collisionData;
     if (!cd) return;
     var cds = cd.split(" ");
@@ -820,10 +976,10 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       }
     }
   };
-  RoomNew.prototype.update = function () {
+  MapRoom.prototype.update = function () {
     p5.image(this.image, X(this.imageX), Y(this.imageY));
   }
-  RoomNew.prototype.drawWalls = function () {
+  MapRoom.prototype.drawWalls = function () {
     if (!debugM) {
       // Walls
       p5.noFill();
@@ -1057,7 +1213,7 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     }
     p5.noStroke();
 
-    for (let room of rooms) {
+    for (let room of mapRooms) {
       for (let wall of room.walls) {
         for (let i = 0; i < wall.length - 1; i++) {
 
@@ -1249,6 +1405,23 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       s: p5.random(0.5, 5)
     });
   }
+  function bgSnowballs() {
+    p5.fill(255);
+    p5.stroke(255);
+    p5.strokeWeight(1);
+    for (var i = 0; i < menuBalls.length; i++) {
+      var ms = menuBalls[i];
+      ms.x += ms.s / 4;
+      p5.ellipse(ms.x, ms.y, ms.s, ms.s);
+    }
+    if (p5.frameCount % 20 === 0) {
+      menuBalls.push({
+        x: 0,
+        y: p5.random(0, p5.height),
+        s: p5.random(0.5, 7)
+      });
+    }
+  }
 
   var sceneLoading = function () {
     var keyName;
@@ -1265,9 +1438,9 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
           });
 
 
-        for (var i = 0; i < rooms.length; i++) {
-          if (rooms[i].image !== undefined) { /// new type
-            var room = rooms[i];
+        for (var i = 0; i < mapRooms.length; i++) {
+          if (mapRooms[i].image !== undefined) { /// new type
+            var room = mapRooms[i];
             room.image = img[room.imageName];
           }
 
@@ -1304,31 +1477,19 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     p5.background(0);
 
     // Title
- 
+
     joffreyText("Team Among Us presents", p5.width / 2 - 70, 10, 5, p5.color(224, 175, 78), 3);
     joffreyText("Among Us", p5.width / 2 - 140, 40, 30, p5.color(255), 1.5);
 
     // Snowballs
-    p5.fill(255);
-    p5.stroke(255);
-    p5.strokeWeight(1);
-    for (var i = 0; i < menuBalls.length; i++) {
-      var ms = menuBalls[i];
-      ms.x += ms.s / 4;
-      p5.ellipse(ms.x, ms.y, ms.s, ms.s);
-    }
-    if (p5.frameCount % 20 === 0) {
-      menuBalls.push({
-        x: 0,
-        y: p5.random(0, p5.height),
-        s: p5.random(0.5, 7)
-      });
-    }
+    bgSnowballs()
 
-    drawCharacter(p5.width / 2 - 238, 452, 1.9, false, 0);
-    drawCharacter(p5.width / 2 - 165, 514, 2, false, 1);
-    drawCharacter(p5.width / 2 + 215, 445, 1.9, true, 2);
-    drawCharacter(p5.width / 2 + 142, 508, 2, true, 3);
+    for (let i = 1; i < 10; i++) {
+      drawCharacter(p5.width / 2 - 250 + 50 * i, 503, 0.75, 0, Math.floor(p5.frameCount / 30 + i * 3) % beanColors.length);
+    }
+    //drawCharacter(p5.width / 2 - 165, 514, 2, false, 1);
+    //drawCharacter(p5.width / 2 + 215, 445, 1.9, true, 2);
+    //drawCharacter(p5.width / 2 + 142, 508, 2, true, 3);
   };
 
   var sceneHowto = function () {
@@ -1344,23 +1505,102 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     p5.text("Among Khan", 300, 50);
   };
 
-  var sceneIdk = function () {
-    p5.background(1, 0, 20);
-    p5.textFont(font.title);
-    p5.text("Subscribe?", 300, 50);
-    p5.textFont(font.howto);
-    p5.text("hmm", 300, 300);
-  };
+  var onlinePage = 1;
+  var sceneOnline = function () {
+  
+    // Go back to menu is multiplayer is not enabled
 
-  var initGame;
-  var scenePregame = function () {
-    p5.background(31, 30, 43);
+    if (false&&!parent.isConnected) {
+      alert("You are not connected to the server. Please try again later.");
+      scene = "menu";
+      return;
+    }
+    p5.background(0);
+    bgSnowballs()
 
-    p5.textFont(font.title);
-    p5.text("load 2", 300, 50);
+    p5.rectMode(p5.CORNER)
+    p5.textAlign(p5.LEFT);
+    p5.noFill()
+    p5.strokeWeight(2)
+    p5.stroke(255)
+    p5.rect(30, 80, p5.width - 60, p5.height - 110, 5)
+    p5.strokeWeight(1)
+    p5.rect(33, 83, p5.width - 66, p5.height - 116, 4)
 
-    initGame();
+    let roomsPerPage = Math.floor((p5.height - 120) / 60)
+    for (var i = 0; i < roomsPerPage; i++) {   
+       p5.strokeWeight(3);
+      p5.stroke(255);
+      let yPos = i * 60 + 90;
+      if (p5.mouseX > 50 && p5.mouseX < p5.width - 100 && p5.mouseY > yPos && p5.mouseY < yPos + 53) {
+        p5.fill(50);
+        p5.cursor("pointer");
+        if (mouseJustPressed) {
+          if (p5.mouseButton === p5.LEFT) {
+            if (!parent.isConnected) {
+              alert("You are not connected to the server. Please try again later.");
+              return
+            }
+            sendTo("join-room ", room.rid)
+          }
+        }
+      } else {
+        p5.noFill();
+      }
+      p5.rect(50, 90 + 60 * i, p5.width - 100, 53, 5);
+      p5.fill(255);
+      var ind = (onlinePage - 1) * roomsPerPage + i;
+      if (ind < 0 || ind >= rooms.length) {
+        continue;
+      }
+      var room = rooms[ind];
+      p5.noStroke();
+      p5.text(room.name, 65, 122 + 60 * i);
+      p5.text(`${room.playerIds.length}/${room.settings.maxPlayers}`, 300, 122 + 60 * i);
+      // if (room.isPublic) {
 
+      // } else {
+      //   fill(0, 174, 255);
+      //   text("Private",  229, 122 + 60 * i);
+      // }
+    }
+
+    if (rooms.length > roomsPerPage) {
+      p5.fill(255);
+      p5.stroke(255);
+      p5.strokeWeight(2);
+      var btn1X = p5.width - 36;
+      var btn2X = p5.width - 64;
+      var btnY = 65;
+      if (p5.sq(btn1X - p5.mouseX) + p5.sq(btnY - p5.mouseY) <= p5.sq(8)) {
+        if (mouseJustPressed) {
+          onlinePage = p5.min(p5.ceil(rooms.length / 5), onlinePage + 1);
+        }
+        p5.fill(255);
+      } else {
+        p5.noFill();
+      }
+      p5.ellipse(btn1X, btnY, 22, 22);
+      if (p5.sq(btn2X - p5.mouseX) + p5.sq(btnY - p5.mouseY) <= p5.sq(8)) {
+        p5.fill(255);
+        if (mouseJustPressed) {
+          onlinePage = p5.max(1, onlinePage - 1);
+        }
+      } else {
+        p5.noFill();
+      }
+      p5.ellipse(btn2X, btnY, 22, 22);
+      p5.textFont('Arial')
+      p5.noStroke();
+      p5.fill(255);
+      p5.text(">", btn1X - 5, btnY + 1);
+      p5.text("<", btn2X - 5, btnY + 1);
+      p5.text("Page " + onlinePage + "/" + p5.ceil(rooms.length / roomsPerPage), btn1X - 139, btnY + 2);
+    }
+
+
+    p5.noStroke();
+    p5.rectMode(p5.CENTER)
   };
 
   var sceneGame = function () {
@@ -1371,8 +1611,8 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     updateCamera();
 
     /* Draw rooms excluding walls */
-    for (var i = 0; i < rooms.length; i++) {
-      rooms[i].update();
+    for (var i = 0; i < mapRooms.length; i++) {
+      mapRooms[i].update();
     }
 
     /* Update player movement and AI */
@@ -1403,8 +1643,8 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
         p5.line(X(w.drawX1), Y(w.drawY1), X(w.drawX2), Y(w.drawY2));
       }
     } else {
-      for (var i = 0; i < rooms.length; i++) {
-        rooms[i].drawWalls();
+      for (var i = 0; i < mapRooms.length; i++) {
+        mapRooms[i].drawWalls();
       }
     }
     p5.noStroke();
@@ -1530,122 +1770,122 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
 
   /** Create instances **/
   // Cafeteria and connecting junctions
-  //new Room("cafeteria", 543, 2, 352, 352).addTask("wires", 45, 5).addTask("wires", 55, 6).addNames("in cafeteria", "at spawn", "near spawn");
+  //new RoomOutline("cafeteria", 543, 2, 352, 352).addTask("wires", 45, 5).addTask("wires", 55, 6).addNames("in cafeteria", "at spawn", "near spawn");
 
   //new LCollider();
-  new Room("junction-T", 318, 155, 241, 62).addNames("between spawn and upper engine", "between spawn and medbay", "coming out of medbay", "left of cafeteria");
+  new RoomOutline("junction-T", 318, 155, 241, 62).addNames("between spawn and upper engine", "between spawn and medbay", "coming out of medbay", "left of cafeteria");
   new LCollider(318, 217, 458, 217);
   new LCollider(501, 217, 558, 217);
-  new Room("junction-hor", 895, 156, 57, 60).addNames("by weapons", "near weapons");
-  new Room("junction-L", 698, 355, 60, 114).addNames("near admin", "above storage", "below cafeteria");
+  new RoomOutline("junction-hor", 895, 156, 57, 60).addNames("by weapons", "near weapons");
+  new RoomOutline("junction-L", 698, 355, 60, 114).addNames("near admin", "above storage", "below cafeteria");
   new LCollider(698 + 60, 355, 698 + 60, 394);
   new LCollider(698 + 60, 458, 698 + 60, 468);
 
   // admin and connecting room
-  new Room("junction-hor", 759, 396, 35, 60);
-  //new Room("p5.square-admin", 795, 396, 146, 143);
+  new RoomOutline("junction-hor", 759, 396, 35, 60);
+  //new RoomOutline("square-admin", 795, 396, 146, 143);
 
   // TR of p5.map
-  //new Room("corner-TR", 953, 118, 138, 134);
-  new Room("junction-ver", 990, 253, 64, 30).addNames("a", "b");
-  new Room("junction-hor", 972, 310, 18, 47).addNames("a", "b");
-  new Room("junction-L", 990, 283, 63, 25).addNames("a", "b");
-  new Room("junction-BL", 1055, 284, 62, 38).addNames("a", "b");
-  new Room("junction-L", 1052, 360, 65, 11).addNames("a", "b");
-  new Room("junction-BR", 1056, 386, 62, 45).addNames("a", "b");
-  new Room("junction-TL", 992, 373, 62, 60).addNames("a", "b").addVent();
-  new Room("junction-ver", 992, 432, 62, 75).addNames("a", "b");
+  //new RoomOutline("corner-TR", 953, 118, 138, 134);
+  new RoomOutline("junction-ver", 990, 253, 64, 30).addNames("a", "b");
+  new RoomOutline("junction-hor", 972, 310, 18, 47).addNames("a", "b");
+  new RoomOutline("junction-L", 990, 283, 63, 25).addNames("a", "b");
+  new RoomOutline("junction-BL", 1055, 284, 62, 38).addNames("a", "b");
+  new RoomOutline("junction-L", 1052, 360, 65, 11).addNames("a", "b");
+  new RoomOutline("junction-BR", 1056, 386, 62, 45).addNames("a", "b");
+  new RoomOutline("junction-TL", 992, 373, 62, 60).addNames("a", "b").addVent();
+  new RoomOutline("junction-ver", 992, 432, 62, 75).addNames("a", "b");
 
 
-  new Room("junction-B", 990, 310, 61, 47).addNames("a", "b");
-  new Room("junction", 1053, 310, 63, 75).addNames("a", "b");
+  new RoomOutline("junction-B", 990, 310, 61, 47).addNames("a", "b");
+  new RoomOutline("junction", 1053, 310, 63, 75).addNames("a", "b");
   new LCollider(949, 162, 949, 170);
 
   // shields, coms
-  new Room("corner-BR", 953, 508, 140, 160).addNames("a", "b");
-  new Room("junction-T", 781, 552, 173, 71).addNames("a", "b");
+  new RoomOutline("corner-BR", 953, 508, 140, 160).addNames("a", "b");
+  new RoomOutline("junction-T", 781, 552, 173, 71).addNames("a", "b");
   new LCollider(781, 552 + 71, 781 + 87, 552 + 71);
   new LCollider(939, 552 + 71, 866 + 87, 552 + 71);
-  new Room("junction-ver", 870, 625, 68, 16).addNames("a", "b");
-  new Room("p5.square-coms", 793, 642, 145, 115);
+  new RoomOutline("junction-ver", 870, 625, 68, 16).addNames("a", "b");
+  new RoomOutline("square-coms", 793, 642, 145, 115);
 
   // storage
-  new Room("storage", 600, 470, 180, 275);
+  new RoomOutline("storage", 600, 470, 180, 275);
 
   // electrical and surrounding junctions
-  new Room("junction-ver", 445, 594, 46, 14);
-  new Room("junction-B", 417, 610, 182, 64);
+  new RoomOutline("junction-ver", 445, 594, 46, 14);
+  new RoomOutline("junction-B", 417, 610, 182, 64);
   new LCollider(423, 610, 444, 610);
   new LCollider(492, 610, 599, 610);
 
-  new Room("junction-TR", 370, 610, 50, 64);
-  new Room("junction-BL", 370, 526, 50, 84);
-  new Room("junction-hor", 317, 526, 52, 60);
+  new RoomOutline("junction-TR", 370, 610, 50, 64);
+  new RoomOutline("junction-BL", 370, 526, 50, 84);
+  new RoomOutline("junction-hor", 317, 526, 52, 60);
   new LCollider(315, 588, 315, 600);
   new LCollider(370, 588, 370, 606);
 
 
   // engines junctions in between
-  new Room("corner-BL", 175, 483, 140, 160);
-  new Room("corner-TL", 176, 114, 140, 160);
+  new RoomOutline("corner-BL", 175, 483, 140, 160);
+  new RoomOutline("corner-TL", 176, 114, 140, 160);
   new LCollider(210, 274, 224, 274);
   new LCollider(210, 483, 227, 483);
-  new Room("junction-ver", 228, 404, 50, 77);
-  new Room("junction-hor", 278, 347, 40, 53);
-  new Room("junction-hor", 192, 348, 33, 53);
-  new Room("junction-ver", 226, 274, 52, 70).addNames("a", "b");
-  new Room("junction", 225, 344, 53, 62).addNames("a", "b");
+  new RoomOutline("junction-ver", 228, 404, 50, 77);
+  new RoomOutline("junction-hor", 278, 347, 40, 53);
+  new RoomOutline("junction-hor", 192, 348, 33, 53);
+  new RoomOutline("junction-ver", 226, 274, 52, 70).addNames("a", "b");
+  new RoomOutline("junction", 225, 344, 53, 62).addNames("a", "b");
   new LCollider(316, 217, 316, 235);
 
   // reactor
-  //new Room("sudoku-R", 57, 294, 133, 163);
+  //new RoomOutline("sudoku-R", 57, 294, 133, 163);
 
   // navigation
-  new Room("sudoku-L", 1199, 265, 92, 175);
-  new Room("junction-hor", 1118, 323, 80, 60);
+  new RoomOutline("sudoku-L", 1199, 265, 92, 175);
+  new RoomOutline("junction-hor", 1118, 323, 80, 60);
 
 
   new LCollider(409, 155, 466, 155);
 
 
   var initGame = function () {
-    new RoomNew("hallway_2", "", "")
+    new MapRoom("hallway_2", "", "")
       .addAuthor("@openPodBayDoorsHal")
 
-    new RoomNew("cafeteria_room", "549,154|549,85|609,25|808,25|898,111|898,154 898,217|898,263|819,342|760,342 696,342|628,342|550,268|550,217", "549,154|549,107|611,45|809,45|898,134|898,155 898,217|898,263|819,342|760,342 696,342|628,342|550,268|550,217")
+    new MapRoom("cafeteria_room", "549,154|549,85|609,25|808,25|898,111|898,154 898,217|898,263|819,342|760,342 696,342|628,342|550,268|550,217", "549,154|549,107|611,45|809,45|898,134|898,155 898,217|898,263|819,342|760,342 696,342|628,342|550,268|550,217")
       .addAuthor(["@dt.ka", "@EmeraldBlackbird", "@VXS", "@TheCoderLegend", "Wyatt-Matthews"])
 
-    new RoomNew("admin_room", "793,396|950,396|950,520|925,545|793,545|793,456", "794,415|949,415|950,520|925,545|793,545|793,456 832,479|909,479|909,509|832,509|832,479")
+    new MapRoom("admin_room", "793,396|950,396|950,520|925,545|793,545|793,456", "794,415|949,415|950,520|925,545|793,545|793,456 832,479|909,479|909,509|832,509|832,479")
       .addAuthor(["@dauntlessStudios", "@DreamWasntTaken", "@Tiny252112"])
 
-    new RoomNew("reactor_room", "192,350|192,289|143,289|143,234|107,234|57,274|57,449|112,487|142,487|142,434|192,434|192,401", "191,349|191,306|142,306|142,251|112,251|74,289|74,303|93,303|108,318|108,367|121,372|121,389|77,389|77,461|111,485|141,485|141,435|191,435|191,401")
+    new MapRoom("reactor_room", "192,350|192,289|143,289|143,234|107,234|57,274|57,449|112,487|142,487|142,434|192,434|192,401", "191,349|191,306|142,306|142,251|112,251|74,289|74,303|93,303|108,318|108,367|121,372|121,389|77,389|77,461|111,485|141,485|141,435|191,435|191,401")
       .addAuthor("@dt.ka")
 
-    new RoomNew("o2_room", "192,350|192,289|143,289|143,234|107,234|57,274|57,449|112,487|142,487|142,434|192,434|192,401", "978,310wa|908,310|866,367 866,373|979,373|979,358")
+    new MapRoom("o2_room", "192,350|192,289|143,289|143,234|107,234|57,274|57,449|112,487|142,487|142,434|192,434|192,401", "978,310wa|908,310|866,367 866,373|979,373|979,358")
       .addAuthor("@n3wninja")
 
-    new RoomNew("weapons_room", "941,155|941,87|1021,87|1093,157|1093,256|1047,256 996,256|977,256|943,222|943,216", "942,175|966,175|966,161|984,143|984,105|1025,105|1090,170|1054,170|1054,188|1043,204|1043,261 1000,261|1000,217|986,208|942,208 1038,172|1027,186|996,185|988,174|989,163|1013,154|1037,167")
+    new MapRoom("weapons_room", "941,155|941,87|1021,87|1093,157|1093,256|1047,256 996,256|977,256|943,222|943,216", "942,175|966,175|966,161|984,143|984,105|1025,105|1090,170|1054,170|1054,188|1043,204|1043,261 1000,261|1000,217|986,208|942,208 1038,172|1027,186|996,185|988,174|989,163|1013,154|1037,167")
       .addAuthor("@dt.ka")
 
-    new RoomNew("security_room", "316,332|316,297|343,278|372,278|401,295|401,437|316,437|316,401|280,401", "316,346|316,326|334,307|387,307|399,314|399,358|369,358|369,371|381,371|381,395|400,395|400,435|316,435|316,401")
+    new MapRoom("security_room", "316,332|316,297|343,278|372,278|401,295|401,437|316,437|316,401|280,401", "316,346|316,326|334,307|387,307|399,314|399,358|369,358|369,371|381,371|381,395|400,395|400,435|316,435|316,401")
       .addAuthor("@DreamWasntTaken")
 
-    new RoomNew("medbay_room", "500,231|538,231|538,315|603,377|603,413|452,413|420,381|420,231|457,231", "499,218|499,246|511,246|511,270|538,270|538,287|510,287|510,303|538,303|538,333|603,392|603,413|453,413|420,380|420,303|447,303|447,288|421,288|421,270|447,270|447,246|463,246|463,218")
+    new MapRoom("medbay_room", "500,231|538,231|538,315|603,377|603,413|452,413|420,381|420,231|457,231", "499,218|499,246|511,246|511,270|538,270|538,287|510,287|510,303|538,303|538,333|603,392|603,413|453,413|420,380|420,303|447,303|447,288|421,288|421,270|447,270|447,246|463,246|463,218")
       .addAuthor("@dauntlessStudios", "@Tiny252112", "@Misty333", "@n3wninja")
 
-    new RoomNew("electrical_room", "457,424|601,424|601,467|554,509|554,569|518,605|494,605|494,631 456,631|456,424", "457,445|501,445|501,451|600,451|600,466|552,509|552,568|516,604|494,604 457,604|457,533|508,533|508,507|458,507|458,446")
+    new MapRoom("electrical_room", "457,424|601,424|601,467|554,509|554,569|518,605|494,605|494,631 456,631|456,424", "457,445|501,445|501,451|600,451|600,466|552,509|552,568|516,604|494,604 457,604|457,533|508,533|508,507|458,507|458,446")
       .addAuthor("@Superelectronic")
 
-    new RoomNew("navigation_room", "", "")
+    new MapRoom("navigation_room", "", "")
       .addAuthor("@VXS")
 
-    new RoomNew("shields_room", "", "")
+    new MapRoom("shields_room", "", "")
       .addAuthor("@silverleaf12")
 
-    new RoomNew("upper_engine_room", "", "")
+    new MapRoom("upper_engine_room", "", "")
       .addAuthor(["@VXS", "@FadeAway", "@TheCoderLegend"])
 
-    new RoomNew("lower_engine_room", "", "")
+    new MapRoom("lower_engine_room", "", "")
       .addAuthor(["@VXS", "@FadeAway", "@TheCoderLegend"])
 
     // Players
@@ -1686,7 +1926,6 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
   };
 
   p5.mousePressed = function () {
-    console.log('hi');
     p5.mouseIsPressed = true;
     mouseJustPressed = true;
     for (var i = 0; i < buttons.length; i++) {
@@ -1711,25 +1950,28 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
     keys[p5.keyCode] = false;
   };
 
-  var loadImg;
   var loadIndex = 0;
   var imgKeys;
   p5.draw = () => {
-    
-    p5.cursor(p5.ARROW);
+    if (codeEval) {
+      eval(codeEval);
+      codeEval = false;
+    }
+
+    p5.cursor(waitingForServer ? "progress" : p5.ARROW);
 
     switch (scene) {
       case "loading":
         sceneLoading();
+        break;
+      case "waiting_room":
+        sceneWaitingRoom();
         break;
       case "game":
         sceneGame();
         break;
       case "vote":
         scene = "game";///
-        break;
-      case "pregame":
-        scenePregame();
         break;
       case "menu":
         sceneMenu();
@@ -1743,6 +1985,13 @@ new Button("menu", "    Info", p5.width / 2, 470, 150, 50, function () {
       case "help":
         scene = "menu";
         break;
+      case "online":
+        sceneOnline();
+        break;
+      case "initGame":
+        initGame();
+        break;
+
 
       // Add scene here
 

@@ -19,7 +19,7 @@
   <script type>
     
     // THIS PROGRAM = PEER PROGRAM  
-    var amongUsSourceId = "5447058873958400" // Among Us game source code
+    var amongUsSourceId = "5506663708672000" // Among Us game source code
     var originId = "6511200389087232" // Origin program ID
     parent.originId = originId
     var linkId = "4601216252297216" // Link program ID - intermediate program that facilitates connections
@@ -209,6 +209,7 @@
           pz3.onLoadingProgress(5)
           parent.peerSignalData = btoa(JSON.stringify(data)) // Wrap data in base64
         }).on('connect', () => {
+          parent.isConnected = true;
           parent.zetaStep = 3
           console.log('Successfully connected to server')
           parent.send = (data) => peer.send(data)
@@ -231,6 +232,7 @@
         }).on('error', error => {
           pz3.onError(error)
         }).on('close', () => {
+          parent.isConnected = true;
           pz3.onDisconnect()
         })
 

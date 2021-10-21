@@ -29,8 +29,8 @@ let beanShadows = [// Secondary bean colors. Simple p5.color interpolation betwe
   p5.color(131, 150, 191),
   p5.color(60, 23, 124),
   p5.color(94, 38, 20),
-  p5.color(22, 168, 67),
   p5.color(36, 169, 190),
+  p5.color(22, 168, 67),
 ];
 
 
@@ -1891,7 +1891,7 @@ var gradientPixTxt = function (str, x, y, txtSize, gradClrFrom, gradClrTo, boldn
       p5.translate(-400, 0);
     }
 
-    p5.noStroke();
+    p5.noStroke()
     if (cycle === 0) {
       p5.fill(0, 0, 0);
       p5.ellipse(203, 173, 39, 26);
@@ -3858,7 +3858,7 @@ var imgSource = {
 
       p5.fill(255, 255, 255);
       p5.textSize(23);
-      //font//p5.textFont(p5.loadFont("Arial Bold"));
+      p5.textFont("Arial Bold");
       p5.text("0", 347, 22);
       p5.textSize(11);
       p5.text("2", 360, 25);
@@ -6500,8 +6500,7 @@ var imgSource = {
     img.strokeWeight(3);
     img.stroke(255, 255, 255);
     img.strokeWeight(5);
-    //var f = p5.loadFont("cursive");
-    //font//p5.textFont(f);
+    img.textFont("cursive");
     img.textSize(21);
     img.fill(255, 255, 255);
     img.text("REPORT", x + 31, y + 129, 100, 100);
@@ -7653,12 +7652,12 @@ var imgSource = {
     img.fill(79, 77, 107);
     img.rect(215, 50, 20, 5, 2);
     img.rect(375, 50, 20, 5, 2);
-    //font//p5.textFont(p5.loadFont("cursive", 8));
+    p5.textFont("cursive", 8);
 
     img.fill(0);
     img.text("010", 217, 62);
     img.text("10 1", 377, 62);
-    //font//p5.textFont(p5.loadFont("Sans-serif"));
+    p5.textFont("Sans-serif");
     img.fill(119, 141, 145);
     img.stroke(111, 131, 135);
     img.rect(285, 50, 40, 30);
@@ -10128,7 +10127,7 @@ var imgSource = {
     img.stroke(0, 242, 255);
     img.line(-104, 156, 392, 156);
 
-    //font//p5.textFont(p5.loadFont("monospace"));
+    p5.textFont("monospace");
     img.fill(255, 196, 0);
     img.text("CAFETERIA", 200, 98);
     img.stroke(255, 196, 0);

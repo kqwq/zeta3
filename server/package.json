@@ -4,12 +4,14 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node main2.js"
   },
   "author": "",
   "type": "module",
   "license": "ISC",
   "dependencies": {
+    "countries-and-timezones": "^3.3.0",
+    "country-flags-svg": "^1.1.1",
     "dotenv": "^10.0.0",
     "fs": "0.0.1-security",
     "node-fetch": "^3.0.0",
