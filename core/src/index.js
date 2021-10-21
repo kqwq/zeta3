@@ -7,8 +7,7 @@ document.body.style.overflow = 'hidden';
 
 // Peer setup
 let isKhanAcademy = (window.parent != window);
-window.parent = {
-  zeta3: {
+window.parent.zeta3 = {
     onLoadingProgress: () => { },
     onConnect: window.parent?.zeta3?.onConnect,
     onData: (sender, data) => {
@@ -25,7 +24,7 @@ window.parent = {
     onError: () => {
       console.error(err)
     },
-  }
+  
 }
 
 if (!isKhanAcademy) { // Only run if off khanacademy.org
