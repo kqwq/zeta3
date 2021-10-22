@@ -1,13 +1,16 @@
 //import p5 from 'p5';
 import Loader from './tau_graphics'
 
+new p5(sketch);
+function sketch(p5) {
+p5.disableFriendlyErrors  = true;
 
-document.body.style.margin = 0;
-document.body.style.overflow = 'hidden';
+  document.body.style.margin = 0;
+  document.body.style.overflow = 'hidden';
 
-// Peer setup
-let isKhanAcademy = (window.parent != window);
-window.parent.zeta3 = {
+  // Peer setup
+  let isKhanAcademy = (window.parent != window);
+  window.parent.zeta3 = {
     onLoadingProgress: () => { },
     onConnect: window.parent?.zeta3?.onConnect,
     onData: (sender, data) => {
@@ -24,117 +27,143 @@ window.parent.zeta3 = {
     onError: () => {
       console.error(err)
     },
-  
-}
 
-if (!isKhanAcademy) { // Only run if off khanacademy.org
-  window.mi = s => parent.peer.signal(s)
-  console.log('Off-KA version detected, loading SimplePeer, sendTo');
-  if (!parent.browserUsername) {
-    parent.browserUsername = /*prompt('Enter a username:') || */Math.random().toString(36).substring(7);
-    // Remove non-alpha-numeric characters
-    parent.browserUsername = parent.browserUsername.replace(/[^a-zA-Z0-9]/g, '');
   }
 
-
-
-  parent.peer = new SimplePeer({
-    initiator: true,
-    trickle: false
-  }).on('signal', data => {
-    parent.peerSignalData = btoa(JSON.stringify(data)) // Wrap data in base64
-    console.log(parent.peerSignalData + "\n" + parent.browserUsername);
-  }).on('connect', () => {
-    parent.isConnected = true;
-    console.log('Successfully connected to server')
-    parent.send = (data) => peer.send(data)
-    parent.peer.send('peer has connected' + Math.random())
-  }).on('data', data => {
-    data = data.toString()
-    if (data[0] == "~") {
-      parent.zeta3.onData(data.slice(-16), data.slice(1, -16))
-    } else {
-      parent.zeta3.onData('server', data)
+  if (!isKhanAcademy) { // Only run if off khanacademy.org
+    window.mi = s => parent.peer.signal(s)
+    console.log('Off-KA version detected, loading SimplePeer, sendTo');
+    if (!parent.browserUsername) {
+      parent.browserUsername = /*prompt('Enter a username:') || */Math.random().toString(36).substring(7);
+      // Remove non-alpha-numeric characters
+      parent.browserUsername = parent.browserUsername.replace(/[^a-zA-Z0-9]/g, '');
     }
-  }).on('error', error => {
-    console.log(error);
-  }).on('close', () => {
-    parent.isConnected = true;
-    console.log('Connection closed');
-  })
 
-  parent.sendTo = (recipient, data) => {
-    let message
-    if (!data) { // If no recipient is provided, assume it's to the server
-      message = recipient
-    } else if (recipient == "server") {
-      message = data
-    } else {
-      message = `~${recipient}${data}`
-    }
-    parent.peer.send(message)
-  }
-}
 
-const sendTo = parent.sendTo;
 
-function handlePeerCommand(senderId, commandName, commandArg) {
-  switch (commandName) {
-    case "ping":
-      sendTo(senderId, "pong")
-      break;
-    case "chat":
-      parent.browserColor = commandArg
-      break;
-    case "setBackground":
-      parent.browserBackground = commandArg
-      break;
-    case "setFont":
-      parent.browserFont = commandArg
-      break;
-    default:
-      console.log(`Unrecognized peer command from id:${senderId}`, commandName, commandArg)
-  }
-}
-
-function handleServerCommand(commandName, commandArg) {
-  console.log(commandName, commandArg);
-  switch (commandName) {
-    case "ping":
-      sendTo(senderId, "pong")
-      break;
-    case "cheating":
-      alert("You have been flagged for cheating")
-      scene = "menu"
-      parent.peer.destroy()
-      // Destroy environment and notify player of cheating
-      putCode('<!DOCTYPE html><html><head><title>Error</title></head><body><img src="https://upload.wikimedia.org/wikipedia/commons/9/96/Farm-Fresh_server_error.png"><br><p>Possible cheating detected</p></body></html>')
-      break;
-    case "set-profile":
-      myProfile = JSON.parse(commandArg)
-      break;
-    case "set-profiles":
-      profiles = JSON.parse(commandArg)
-      break;
-    case "set-room":
-      room = JSON.parse(commandArg)
-      if (scene == "online") {
-        scene = "initGame"
+    parent.peer = new SimplePeer({
+      initiator: true,
+      trickle: false
+    }).on('signal', data => {
+      parent.peerSignalData = btoa(JSON.stringify(data)) // Wrap data in base64
+      console.log(parent.peerSignalData + "\n" + parent.browserUsername);
+    }).on('connect', () => {
+      parent.isConnected = true;
+      console.log('Successfully connected to server')
+      parent.send = (data) => peer.send(data)
+      parent.peer.send('peer has connected' + Math.random())
+    }).on('data', data => {
+      // console.log(data.toString()); // Log absolutely everything
+      for (let dataPiece of data.toString().split("|")) {
+        if (dataPiece[0] == "~") {
+          parent.zeta3.onData(dataPiece.slice(-16), dataPiece.slice(1, -16))
+        } else {
+          parent.zeta3.onData('server', dataPiece)
+        }
       }
-      break;    
-    case "set-rooms":
-      rooms = JSON.parse(commandArg)
-      break;
-    default:
-      console.log("Unrecognized server command: " + commandName, commandArg)
+    }).on('error', error => {
+      console.log(error);
+    }).on('close', () => {
+      parent.isConnected = true;
+      console.log('Connection closed');
+    })
+
+    parent.sendTo = (recipient, data) => {
+      let message
+      if (!data) { // If no recipient is provided, assume it's to the server
+        message = recipient
+      } else if (recipient == "server") {
+        message = data
+      } else {
+        message = `~${recipient}${data}`
+      }
+      parent.peer.send(message)
+    }
   }
-}
+
+  const sendTo = parent.sendTo;
+
+  function handlePeerCommand(senderId, commandName, commandArg) {
+    switch (commandName) {
+      case "ping":
+        sendTo(senderId, "pong")
+        break;
+      case "chat": 
+        parent.browserColor = commandArg
+        break;
+      case "m": // movement
+        let pos = commandArg.split(" ")
+        console.log(pos, senderId);
+        let updatePlayer = players.find(p => p.id == senderId)
+        if (!updatePlayer) {
+          console.log(`Player id ${senderId} not found`);
+          return
+        }
+        updatePlayer.x = parseInt(pos[0])
+        updatePlayer.y = parseInt(pos[1])
+        break;
+      default:
+        console.log(`Unrecognized peer command from id:${senderId}`, commandName, commandArg)
+    }
+  }
+
+  function handleServerCommand(commandName, commandArg) {
+    switch (commandName) {
+      case "ping":
+        sendTo(senderId, "pong")
+        break;
+      case "cheating":
+        alert("You have been flagged for cheating")
+        scene = "menu"
+        parent.peer.destroy()
+        // Destroy environment and notify player of cheating
+        putCode('<!DOCTYPE html><html><head><title>Error</title></head><body><img src="https://upload.wikimedia.org/wikipedia/commons/9/96/Farm-Fresh_server_error.png"><br><p>Possible cheating detected</p></body></html>')
+        break;
+      case "set-profile":
+        myProfile = JSON.parse(commandArg)
+        break;
+      case "set-profiles":
+        profiles = JSON.parse(commandArg)
+        break;
+      case "set-room":
+        waitingForServer = false
+        isMultiplayer = true
+        room = JSON.parse(commandArg)
+        if (scene == "online") {
+          scene = "initGame"
+        }
+        break;
+      case "set-rooms":
+        waitingForServer = false
+        isMultiplayer = true
+        rooms = JSON.parse(commandArg)
+        break;
+      case "add-bean":
+        let pd = JSON.parse(commandArg)
+        // Check if player already exists
+        let player = players.find(p => p.id == pd.id)
+        if (player) {
+          console.log(`Player id ${pd.id} already exists`);
+          return
+        }
+        new Bean(pd.id, pd.name, pd.isSpectator, pd.isImposter, pd.x, pd.y)
+        break;
+      case "remove-bean":
+        let playerIndex = players.findIndex(p => p.id == commandArg)
+        room.playerIds.splice(playerIndex, 1)
+        players.splice(playerIndex, 1)
+        break;
+      default:
+        console.log("Unrecognized server command: " + commandName, commandArg)
+    }
+  }
 
 
 
-////////////////////////////////////////
+  ////////////////////////////////////////
   /* Global multiplayer variables */
   var scene = "loading"
+  var isMultiplayer = false;
   var waitingForServer = false;
   var room = {}; // Room the player is in
   var rooms = []; // All rooms in the game
@@ -148,10 +177,9 @@ function handleServerCommand(commandName, commandArg) {
 
 
 
-/////////////////////////////////
+  /////////////////////////////////
 
-new p5(sketch);
-function sketch(p5) {
+
 
   var font
   p5.preload = () => {
@@ -280,17 +308,29 @@ function sketch(p5) {
     new Button("credits", "Return", p5.width / 2, p5.height - 70, 200, 50, function () {
       scene = "menu";
     });
-    new Button("online", "  Back", 80, 50, 90, 40, function() {
+    new Button("online", "  Back", 80, 50, 90, 40, function () {
       scene = "menu";
 
     });
-    new Button("online", " Refresh", 185, 50, 95, 40, function() {
+    new Button("online", " Refresh", 185, 50, 95, 40, function () {
       waitingForServer = true
       sendTo("rooms")
     });
-    new Button("online", "  Host", 290, 50, 88, 40, function() {
+    new Button("online", "  Host", 290, 50, 88, 40, function () {
       waitingForServer = true
-      sendTo("create-room {}")
+      let roomSettings = {
+        name: myProfile?.username || parent.browserUsername || "Anonymous",
+      }
+      sendTo("create-room " + JSON.stringify(roomSettings))
+    });
+    new Button("game", "  Leave", 80, 50, 90, 40, function () {
+      if (isMultiplayer) {
+        send("leave-room")
+      }
+      isMultiplayer = false
+      resetGame()
+      scene = "menu";
+
     });
   }
 
@@ -332,7 +372,7 @@ function sketch(p5) {
   var colliders = [];
   var players = []; // Array of `Bean` (player) objects
   var me;
-  var UIManager;
+  var uiManager;
   var objs = []; // Interactive components including vents and tasks
   var mouseJustPressed = false;
   var keyJustPressed = false;
@@ -340,6 +380,20 @@ function sketch(p5) {
   var beanWhoReported = null; // The player who reported the body
   var beanNames = ["Red", "Blue", "Green", "Pink", "Orange", "Yellow", "Black", "White", "Purple", "Brown", "Cyan", "Lime"];
 
+function resetGame() {
+  mapRooms = [];
+  colliders = [];
+  players = []; // Array of `Bean` (player) objects
+  me;
+  uiManager;
+  objs = []; // Interactive components including vents and tasks
+  mouseJustPressed = false;
+  keyJustPressed = false;
+  keys = [];
+  beanWhoReported = null; // The player who reported the body
+}
+
+  
   // Random range
   function sq(x) { return x * x }
 
@@ -1005,20 +1059,20 @@ function sketch(p5) {
 
 
 
-  var Bean = function (name, isLocal, isImposter, x, y) {
-    this.id = -1; // -1 = not assigned, 0-11 = assigned
+  var Bean = function (id, name, isSpectator, isImposter, x, y) {
+    this.id = id;
     this.isDead = false;
     this.deadStep = 0;
     players.push(this);
-    this.name = name;
-    this.isLocal = isLocal;
+    this.name = name || "undefined";
+    this.isSpectator = isSpectator;
     this.isImposter = isImposter;
     this.x = this.wasX = this.seekX = x;
     this.y = this.wasY = this.seekY = y;
     this.s = 15; // Size
-    this.id = players.length - 1;
-    this.col = beanColors[this.id];
-    this.colName = beanNames[this.id];
+    this.index = players.length - 1;
+    this.col = beanColors[this.index];
+    this.colName = beanNames[this.index];
     this.facingEast = true;
     this.xSpeed = 2.5; // Speed in the X direction
     this.ySpeed = this.xSpeed * 0.88; // Speed in the Y direction
@@ -1054,7 +1108,7 @@ function sketch(p5) {
     }
 
     // Mouse controls
-    if (p5.mouseIsPressed && p5.mouseButton === p5.LEFT && !UIManager.isMouseHoverAny) {
+    if (p5.mouseIsPressed && p5.mouseButton === p5.LEFT && !uiManager.isMouseHoverAny) {
       this.speedMultiplier = 1;
       this.seekX = gMouseX;
       this.seekY = gMouseY;
@@ -1077,7 +1131,7 @@ function sketch(p5) {
     this.seekY = this.y;
 
     // Change velX and velY
-    if (this.isLocal) {
+    if (this == me) {
       this.localControls();
     }
 
@@ -1098,6 +1152,7 @@ function sketch(p5) {
       this.x += velX * this.speedMultiplier;
       this.y += velY * this.speedMultiplier;
     }
+
 
     // Find nearby colliders for optimized collisions
     this.nearbyColliders = [];
@@ -1171,7 +1226,7 @@ function sketch(p5) {
     p5.ellipse(x, y + s * 0.35, s * 0.95, s * 0.25);
 
     // Draw bean
-    drawCharacter(x, y - S(this.s / 4 + walkY), s / 60, !this.facingEast, this.id, cycle);
+    drawCharacter(x, y - S(this.s / 4 + walkY), s / 60, !this.facingEast, this.index, cycle);
 
     // Show PPV (player-player visibility) if in debug mode
     if (debugM) {
@@ -1236,7 +1291,7 @@ function sketch(p5) {
 
   /** More UI **/
   var UIElement = function (imageName, x, y, available, action, key, number) {
-    UIManager.elements.push(this);
+    uiManager.elements.push(this);
     this.imageName = imageName;
     this.image = img[imageName];
     this.x = x;
@@ -1506,14 +1561,17 @@ function sketch(p5) {
 
   var onlinePage = 1;
   var sceneOnline = function () {
-  
+
     // Go back to menu is multiplayer is not enabled
 
-    if (false&&!parent.isConnected) {
+    if (false && !parent.isConnected) {
       alert("You are not connected to the server. Please try again later.");
       scene = "menu";
       return;
     }
+
+
+
     p5.background(0);
     bgSnowballs()
 
@@ -1527,20 +1585,26 @@ function sketch(p5) {
     p5.rect(33, 83, p5.width - 66, p5.height - 116, 4)
 
     let roomsPerPage = Math.floor((p5.height - 120) / 60)
-    for (var i = 0; i < roomsPerPage; i++) {   
-       p5.strokeWeight(3);
+    for (var i = 0; i < roomsPerPage; i++) {
+      var ind = (onlinePage - 1) * roomsPerPage + i;
+      if (ind < 0 || ind >= rooms.length) {
+        continue;
+      }
+      var theRoom = rooms[ind];
+      p5.strokeWeight(3);
       p5.stroke(255);
       let yPos = i * 60 + 90;
       if (p5.mouseX > 50 && p5.mouseX < p5.width - 100 && p5.mouseY > yPos && p5.mouseY < yPos + 53) {
         p5.fill(50);
-        p5.cursor("pointer");
-        if (mouseJustPressed) {
+        p5.cursor("pointer"); 
+        if (mouseJustPressed) { 
           if (p5.mouseButton === p5.LEFT) {
             if (!parent.isConnected) {
               alert("You are not connected to the server. Please try again later.");
               return
             }
-            sendTo("join-room ", room.rid)
+            waitingForServer = true
+            sendTo("join-room " + theRoom.rid);
           }
         }
       } else {
@@ -1548,14 +1612,10 @@ function sketch(p5) {
       }
       p5.rect(50, 90 + 60 * i, p5.width - 100, 53, 5);
       p5.fill(255);
-      var ind = (onlinePage - 1) * roomsPerPage + i;
-      if (ind < 0 || ind >= rooms.length) {
-        continue;
-      }
-      var room = rooms[ind];
+
       p5.noStroke();
-      p5.text(room.name, 65, 122 + 60 * i);
-      p5.text(`${room.playerIds.length}/${room.settings.maxPlayers}`, 300, 122 + 60 * i);
+      p5.text(theRoom.name || "[no name]", 65, 122 + 60 * i);
+      p5.text(`${theRoom.playerIds.length}/${theRoom.settings.maxPlayers}`, 300, 122 + 60 * i);
       // if (room.isPublic) {
 
       // } else {
@@ -1615,12 +1675,22 @@ function sketch(p5) {
     }
 
     /* Update player movement and AI */
+    
     for (var i = players.length - 1; i >= 0; i--) {
       var player = players[i];
       player.update();
       /* Check collisions with nearby colliders (walls) */
       for (var j = 0; j < player.nearbyColliders.length; j++) {
         player.nearbyColliders[j].checkCollisionsWith(player);
+      }
+    }
+
+    /* Multiplayer position update */
+    
+    if (isMultiplayer) {
+      // Every 12 frames (5fps)
+      if (p5.frameCount % 12 == 0) {
+        sendTo("room", `m ${me.x.toFixed(2)} ${me.y.toFixed(2)}`)
       }
     }
 
@@ -1670,7 +1740,7 @@ function sketch(p5) {
     if (!me.isDead) me.drawName();
 
     /* Report, kill, vent, etc icons */
-    UIManager.show();
+    uiManager.show();
 
     /* For debugging */
     if (debugM) {
@@ -1893,22 +1963,21 @@ function sketch(p5) {
     var magni = 200;
     var centerX = 728;
     var centerY = 187;
-    me = new Bean("Me", true, true, 448, 187);
-    me.id = 0;
+    me = new Bean(myProfile.id || "me", myProfile?.nickname || myProfile.id || "Me", false, false, 448, 187);
     ///
 
 
     ///
-    for (var i = 0; i < 2; i++) {/// revert to i < 9
-      angle += Math.PI / 10;
-      var b = new Bean("CPU " + (i + 2), false, !i, centerX + p5.cos(angle) * magni, centerY + p5.cos(angle) * magni);
-      b.id = i + 1;
-    }
+    // for (var i = 0; i < 2; i++) {/// revert to i < 9
+    //   angle += Math.PI / 10;
+    //   var b = new Bean(0, "CPU " + (i + 2), false, !i, centerX + p5.cos(angle) * magni, centerY + p5.cos(angle) * magni);
+    //   b.id = i + 1;
+    // }
     cam.x = me.x;
     cam.y = me.y;
 
-    UIManager = new UIManager();
-    UIManager.populateUI();
+    uiManager = new UIManager();
+    uiManager.populateUI();
 
     scene = "game";
   };

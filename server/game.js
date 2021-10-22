@@ -16,7 +16,7 @@ let game = {
       isImpostor: false,
       isSpectator: false,
       tasks: [], // Array<string> of task ids
-      
+      rid: "0.123456789", // in room id
       
 
     */],
@@ -40,6 +40,17 @@ function getPlayer(id) {
 function getRoom(rid) {
   return game.rooms.find(r => r.rid == rid)
 }
+function sendToAllPeersInRoom(peerData, rid, message) {
+  if (!rid) {
+    console.error("sendToAllPeersInRoom: rid is null")
+    return
+  }
+  let room = getRoom(rid)
+  for (let pid of room.playerIds) {
+    let peer = peerData.find(p => p.scratchpad.id == pid)
+    peer.sendQueue.push(message)
+  }
+}
 
 
 
@@ -50,6 +61,7 @@ function onPeerConnect(peerContext, context) {
   // Create player data
   game.playerData.push({
     id: peerContext.scratchpad.id, // Guarenteed to be loaded from main2.js
+    name: peerContext.profile.nickname || peerContext.scratchpad.id,
     x: 0,
     y: 0,
     isImpostor: false,
@@ -59,13 +71,14 @@ function onPeerConnect(peerContext, context) {
 }
 function onPeerDisconnect(peerContext, context) {
   // Remove player data
-  game.playerData = game.playerData.filter(p => p.id != peerContext.scratchpad.id)
+  game.playerData = game.playerData.filter(p => p.id != peerContext?.scratchpad?.id)
 }
 
 function onPeerData(data, peerContext, context) {
+  var peerId = peerContext.scratchpad.id
   let send = (d) => {
     try {
-      peerContext.peer.send(d)
+      peerContext.sendQueue.push(d)
     } catch (e) {
       console.error(e)
     }
@@ -84,7 +97,7 @@ function onPeerData(data, peerContext, context) {
         let countryName = getCountry(p.country).name;
         let timezone = getTimezone(p.timezone);
         return {
-          id: peerData.scratchpad?.id,
+          id: peerData.scratchpad.id,
           loc: p.loc,
           country: countryName,
           iso2: p.country,
@@ -96,6 +109,7 @@ function onPeerData(data, peerContext, context) {
       })
       send(JSON.stringify(players))
       break;
+
     } case "profiles": {
 
       let profiles = context.map(peerData => {
@@ -103,12 +117,14 @@ function onPeerData(data, peerContext, context) {
       })
       send("set-profiles " + JSON.stringify(profiles))
       break;
+
     } case "profile": {
       let me = {
         ...peerContext.profile, id: peerContext.scratchpad?.id
       }
       send("set-profile " + JSON.stringify(me))
       break;
+
     } case "lifeprotip": {
 
       let facts = [
@@ -139,15 +155,18 @@ function onPeerData(data, peerContext, context) {
       ]
       send(facts[Math.floor(Math.random() * facts.length)])
       break;
+
     } case "rooms": {
       send("set-rooms " + JSON.stringify(game.rooms))
       break;
+
     } case "create-room": {
+      console.log(peerId, 'peerId', peerContext.scratchpad.id, 'peerContext.scratchpad.id');
       let roomSettings = JSON.parse(commandArg)
       let room = {
         rid: Math.random().toString().substring(2),
-        hostPlayerId: peerContext.scratchpad.id,
-        playerIds: [peerContext.scratchpad.id],
+        hostPlayerId: peerId,
+        playerIds: [peerId],
         settings: {
           name: commandArg.name,
           maxPlayers: roomSettings.maxPlayers || 12,
@@ -155,25 +174,46 @@ function onPeerData(data, peerContext, context) {
           playerSpeed: roomSettings.playerSpeed || 0.1,
         },
       }
+      getPlayer(peerId).rid = room.rid // Set player's room id
       game.rooms.push(room)
       send("set-room " + JSON.stringify(room))
       break;
+
     } case "edit-room": {
       let roomSettings = JSON.parse(commandArg)
-      let room = getRoom(roomSettings.rid)
-      room.settings = roomSettings
-      send("set-room " + JSON.stringify(room))
+      let peerRid = getPlayer(peerId).rid
+      sendToAllPeersInRoom(context, peerRid, "set-room " + JSON.stringify(roomSettings))
       break;
+
     } case "join-room": {
       let roomId = commandArg
-      getRoom(roomId).playerIds.push(peerContext.scratchpad.id)
-      send("200")
+      // Every peer in the room downloads the new bean
+      sendToAllPeersInRoom(context, roomId, "add-bean " + JSON.stringify(getPlayer(peerId)))
+
+
+
+
+
+      // YOU download the room data
+      send("set-room " + JSON.stringify(getRoom(roomId)))
+
+      // YOU download each player's data
+      for (let p of getRoom(roomId).playerIds) {
+        send("add-bean " + JSON.stringify(getPlayer(p)))
+      }
+
+      // Update internal state
+      getPlayer(peerId).rid = roomId
+      getRoom(roomId).playerIds.push(peerId)
+
       break;
     } case "leave-room": {
-      let roomId = commandArg
-      getRoom(roomId).playerIds = getRoom(roomId).playerIds.filter(id => id != peerContext.scratchpad.id)
-      send("200")
+      let roomId = getPlayer(peerId).rid
+      sendToAllPeersInRoom(context, roomId, "remove-bean " + peerId)
+      getPlayer(peerId).rid = null
+      getRoom(roomId).playerIds = getRoom(roomId).playerIds.filter(id => id != peerId)
       break;
+
     } case "start-game": {
       let roomId = commandArg
       let room = getRoom(roomId)
@@ -206,4 +246,4 @@ function cheatDetector(data, peerContext, context) { // anti-cheat system
   return false
 }
 
-export { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector }
+export { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector,getPlayer, sendToAllPeersInRoom }

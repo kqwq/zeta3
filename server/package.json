@@ -2,7 +2,7 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "main.js",
+  "main": "main2.js",
   "scripts": {
     "start": "node main2.js"
   },
