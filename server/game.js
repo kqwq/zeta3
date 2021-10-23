@@ -41,12 +41,16 @@ function getRoom(rid) {
   return game.rooms.find(r => r.rid == rid)
 }
 function sendToAllPeersInRoom(peerData, rid, message) {
-  if (!rid) {
-    console.error("sendToAllPeersInRoom: rid is null")
-    return
-  }
   let room = getRoom(rid)
   for (let pid of room.playerIds) {
+    let peer = peerData.find(p => p.scratchpad.id == pid)
+    peer.sendQueue.push(message)
+  }
+}
+function sendToOtherPeersInRoom(peerData, rid, excludeId, message) {
+  let room = getRoom(rid)
+  for (let pid of room.playerIds) {
+    if (pid == excludeId) continue
     let peer = peerData.find(p => p.scratchpad.id == pid)
     peer.sendQueue.push(message)
   }
@@ -87,7 +91,7 @@ function onPeerData(data, peerContext, context) {
   let commandArg = data.substring(commandName.length + 1)
   switch (commandName) {
     case "ping": {
-      send("pong");
+      peerContext.peer.send("pong"); // Immediately respond to ping
       break;
 
     } case "geo": {
@@ -120,8 +124,9 @@ function onPeerData(data, peerContext, context) {
 
     } case "profile": {
       let me = {
-        ...peerContext.profile, id: peerContext.scratchpad?.id
+        ...peerContext.profile, id: peerId
       }
+      console.log('send profile to ' + peerId, me);
       send("set-profile " + JSON.stringify(me))
       break;
 
@@ -163,12 +168,13 @@ function onPeerData(data, peerContext, context) {
     } case "create-room": {
       console.log(peerId, 'peerId', peerContext.scratchpad.id, 'peerContext.scratchpad.id');
       let roomSettings = JSON.parse(commandArg)
+      let roomName = (peerContext.profile.nickname || peerContext.scratchpad.id) + "'s Game"
       let room = {
         rid: Math.random().toString().substring(2),
         hostPlayerId: peerId,
         playerIds: [peerId],
         settings: {
-          name: commandArg.name,
+          name: roomSettings.name || roomName,
           maxPlayers: roomSettings.maxPlayers || 12,
           impostors: roomSettings.impostors || 2,
           playerSpeed: roomSettings.playerSpeed || 0.1,
@@ -209,9 +215,13 @@ function onPeerData(data, peerContext, context) {
       break;
     } case "leave-room": {
       let roomId = getPlayer(peerId).rid
-      sendToAllPeersInRoom(context, roomId, "remove-bean " + peerId)
-      getPlayer(peerId).rid = null
-      getRoom(roomId).playerIds = getRoom(roomId).playerIds.filter(id => id != peerId)
+      getRoom(roomId).playerIds = getRoom(roomId).playerIds.filter(id => id != peerId) // Remove player from room
+      getPlayer(peerId).rid = null // Remove player's room id
+      if (getRoom(roomId).playerIds.length == 0) {
+        game.rooms = game.rooms.filter(r => r.rid != roomId) // Remove room if empty
+      } else {
+        sendToAllPeersInRoom(context, roomId, "remove-bean " + peerId)
+      }
       break;
 
     } case "start-game": {
@@ -246,4 +256,4 @@ function cheatDetector(data, peerContext, context) { // anti-cheat system
   return false
 }
 
-export { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector,getPlayer, sendToAllPeersInRoom }
+export { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector,getPlayer, sendToAllPeersInRoom, sendToOtherPeersInRoom }

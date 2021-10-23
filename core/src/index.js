@@ -3,10 +3,24 @@ import Loader from './tau_graphics'
 
 new p5(sketch);
 function sketch(p5) {
-p5.disableFriendlyErrors  = true;
+  p5.disableFriendlyErrors = true;
 
   document.body.style.margin = 0;
   document.body.style.overflow = 'hidden';
+
+  /* Global multiplayer variables */
+  var scene = "loading"
+  var isMultiplayer = false;
+  var waitingForServer = false;
+  var room = {}; // Room the player is in
+  var rooms = []; // All rooms in the game
+  var myProfile = {}; // Player's profile
+  var profiles = []; // All players' profiles in the game
+
+  // debugging
+  var codeEval = ""
+
+
 
   // Peer setup
   let isKhanAcademy = (window.parent != window);
@@ -88,19 +102,27 @@ p5.disableFriendlyErrors  = true;
       case "ping":
         sendTo(senderId, "pong")
         break;
-      case "chat": 
+      case "chat":
         parent.browserColor = commandArg
         break;
-      case "m": // movement
+      case "m": // movement 
         let pos = commandArg.split(" ")
-        console.log(pos, senderId);
         let updatePlayer = players.find(p => p.id == senderId)
         if (!updatePlayer) {
-          console.log(`Player id ${senderId} not found`);
-          return
+          console.log(`Player id ${senderId} not found????`);
+          console.log(players);
+          return 
         }
-        updatePlayer.x = parseInt(pos[0])
-        updatePlayer.y = parseInt(pos[1])
+        let newX = parseInt(pos[0])
+        let newY = parseInt(pos[1])
+
+        updatePlayer.velX = (newX - updatePlayer.lastMoveX) / updatePlayer.frameSinceLastMove
+        updatePlayer.velY = (newY - updatePlayer.lastMoveY) / updatePlayer.frameSinceLastMove
+        updatePlayer.frameSinceLastMove = 1
+        updatePlayer.x = newX
+        updatePlayer.y = newY
+        updatePlayer.lastMoveX = newX
+        updatePlayer.lastMoveY = newY
         break;
       default:
         console.log(`Unrecognized peer command from id:${senderId}`, commandName, commandArg)
@@ -111,6 +133,10 @@ p5.disableFriendlyErrors  = true;
     switch (commandName) {
       case "ping":
         sendTo(senderId, "pong")
+        break;
+      case "pong":
+        lastPongReceived = Date.now()
+        pingPongDiff = lastPongReceived - lastPingSent
         break;
       case "cheating":
         alert("You have been flagged for cheating")
@@ -128,7 +154,9 @@ p5.disableFriendlyErrors  = true;
       case "set-room":
         waitingForServer = false
         isMultiplayer = true
+        console.log('before', room);
         room = JSON.parse(commandArg)
+        console.log('after', room);
         if (scene == "online") {
           scene = "initGame"
         }
@@ -150,6 +178,10 @@ p5.disableFriendlyErrors  = true;
         break;
       case "remove-bean":
         let playerIndex = players.findIndex(p => p.id == commandArg)
+        if (playerIndex == -1) {
+          console.log(`Player id ${commandArg} not found (remove-bean)`, players);
+          return
+        }
         room.playerIds.splice(playerIndex, 1)
         players.splice(playerIndex, 1)
         break;
@@ -160,24 +192,7 @@ p5.disableFriendlyErrors  = true;
 
 
 
-  ////////////////////////////////////////
-  /* Global multiplayer variables */
-  var scene = "loading"
-  var isMultiplayer = false;
-  var waitingForServer = false;
-  var room = {}; // Room the player is in
-  var rooms = []; // All rooms in the game
-  var myProfile = {}; // Player's profile
-  var profiles = []; // All players' profiles in the game
 
-  // debugging
-  var codeEval = ""
-
-
-
-
-
-  /////////////////////////////////
 
 
 
@@ -291,10 +306,12 @@ p5.disableFriendlyErrors  = true;
       function () {
         initGame();
       } // Call this when button is pressed
-    );
+    ); 
     new Button("menu", "    Online", p5.width / 2 + 110, 265, 220, 60, function () {
       mouseJustPressed = false;
       scene = "online";
+      sendTo("profile"); // Get profile
+      sendTo("rooms"); // Get list of rooms
     });
     new Button("menu", " How to play", p5.width / 2 - 115, 334, 210, 50, function () {
       scene = "howto";
@@ -318,14 +335,13 @@ p5.disableFriendlyErrors  = true;
     });
     new Button("online", "  Host", 290, 50, 88, 40, function () {
       waitingForServer = true
-      let roomSettings = {
-        name: myProfile?.username || parent.browserUsername || "Anonymous",
-      }
+      let roomSettings = {}
+      console.log('yoooo', Math.random(), roomSettings);
       sendTo("create-room " + JSON.stringify(roomSettings))
     });
     new Button("game", "  Leave", 80, 50, 90, 40, function () {
       if (isMultiplayer) {
-        send("leave-room")
+        sendTo("leave-room")
       }
       isMultiplayer = false
       resetGame()
@@ -380,20 +396,20 @@ p5.disableFriendlyErrors  = true;
   var beanWhoReported = null; // The player who reported the body
   var beanNames = ["Red", "Blue", "Green", "Pink", "Orange", "Yellow", "Black", "White", "Purple", "Brown", "Cyan", "Lime"];
 
-function resetGame() {
-  mapRooms = [];
-  colliders = [];
-  players = []; // Array of `Bean` (player) objects
-  me;
-  uiManager;
-  objs = []; // Interactive components including vents and tasks
-  mouseJustPressed = false;
-  keyJustPressed = false;
-  keys = [];
-  beanWhoReported = null; // The player who reported the body
-}
+  function resetGame() {
+    mapRooms = [];
+    colliders = [];
+    players = []; // Array of `Bean` (player) objects
+    me;
+    uiManager;
+    objs = []; // Interactive components including vents and tasks
+    mouseJustPressed = false;
+    keyJustPressed = false;
+    keys = [];
+    beanWhoReported = null; // The player who reported the body
+  }
 
-  
+
   // Random range
   function sq(x) { return x * x }
 
@@ -471,7 +487,7 @@ function resetGame() {
   };
   Button.prototype.on_mouse_click = function () {
     /* Clicking the button */
-    if (this.is_hover) {
+    if (scene === this.on_scene && this.is_hover) {
       this.is_hover = false;
       this.action();
     }
@@ -1067,8 +1083,10 @@ function resetGame() {
     this.name = name || "undefined";
     this.isSpectator = isSpectator;
     this.isImposter = isImposter;
-    this.x = this.wasX = this.seekX = x;
-    this.y = this.wasY = this.seekY = y;
+    this.x = this.wasX = this.lastMoveX = x;
+    this.y = this.wasY = this.lastMoveY = y;
+    this.velX = 0;
+    this.velY = 0;
     this.s = 15; // Size
     this.index = players.length - 1;
     this.col = beanColors[this.index];
@@ -1088,8 +1106,13 @@ function resetGame() {
       this.killRange = 40; // In game coordinates
     }
     this.reportRange = 40;
+
+    this.frameSinceLastMove = 1
   };
   Bean.prototype.localControls = function () {
+    this.seekX = this.x;
+    this.seekY = this.y;
+
     // Key controls 
     this.speedMultiplier = 0;
     if (keys[p5.LEFT] || keys[65]) {
@@ -1127,8 +1150,8 @@ function resetGame() {
     this.alreadyCollided = false;
     this.wasX = this.x;
     this.wasY = this.y;
-    this.seekX = this.x;
-    this.seekY = this.y;
+    // this.seekX = this.x;
+    // this.seekY = this.y;
 
     // Change velX and velY
     if (this == me) {
@@ -1136,22 +1159,30 @@ function resetGame() {
     }
 
     // More movement code
-    this.isMoving = (this.seekX !== this.x || this.seekY !== this.y);
-    var velX = this.seekX - this.x;
-    var velY = this.seekY - this.y;
-    if (velX || velY) {
-      if (velX < 0) {
-        this.facingEast = false;
-      }
-      if (velX > 0) {
-        this.facingEast = true;
-      }
-      var magni = Math.sqrt(sq(velX) + sq(velY));
-      velX *= this.xSpeed / magni;
-      velY *= this.ySpeed / magni;
-      this.x += velX * this.speedMultiplier;
-      this.y += velY * this.speedMultiplier;
+    if (this.seekX) { // If player or ai controlled
+      var velX = this.seekX - this.x;
+      var velY = this.seekY - this.y;
+      if (velX || velY) {
+        var magni = Math.sqrt(sq(velX) + sq(velY));
+        velX *= this.xSpeed / magni;
+        velY *= this.ySpeed / magni;
+        this.velX = velX * this.speedMultiplier;
+        this.velY = velY * this.speedMultiplier;
+      } else {
+        this.velX = 0;
+        this.velY = 0;
+      }      
     }
+
+    // For drawing
+    this.isMoving = (this.velX !== 0 || this.velX !== 0);
+    if (this.velX < 0) {
+      this.facingEast = false;
+    } else if (this.velX > 0) {
+      this.facingEast = true; 
+    }
+    this.x += this.velX;
+    this.y += this.velY;
 
 
     // Find nearby colliders for optimized collisions
@@ -1197,6 +1228,11 @@ function resetGame() {
     if (this.isImposter) {
       this.killTimer -= 1 / 60;
     }
+
+    
+
+    // Multiplayer
+    this.frameSinceLastMove ++
   };
   Bean.prototype.draw = function () {
     // Drawing
@@ -1331,6 +1367,7 @@ function resetGame() {
     this.isMouseHover = isHover;
   };
 
+
   var UIManager = function () {
     this.elements = [];
     this.isMouseHoverAny = false;
@@ -1407,48 +1444,6 @@ function resetGame() {
     }
   };
 
-  /** Multiplayer support */
-  var MultiInterface = function () {
-    this.localID = -1; // -1 = unknown, 0-11 = assigned
-
-  };
-  MultiInterface.prototype.updatePosition = function (broadcast, beanID, x, y, velocityX, velocityY) {
-    if (broadcast) {
-
-    }
-  };
-  MultiInterface.prototype.completeTask = function (broadcast, breanID, taskName) {
-
-  };
-  MultiInterface.prototype.kill = function (broadcast, killerID, victimID) {
-    if (broadcast) {
-
-    }
-    var killer = players.find(p => p.id === killerID);
-    var victim = players.find(p => p.id === victimID);
-    killer.x = victim.x;
-    killer.y = victim.y;
-    killer.killTimer = killer.killTimerReset;
-    victim.isDead = true; // Set killed player as dead
-  };
-  MultiInterface.prototype.reportBody = function (broadcast, killerID, targetID) {
-    if (broadcast) {
-
-    }
-  }
-  MultiInterface.prototype.callEmergencyMeeting = function (broadcast, beanID) {
-
-  };
-  MultiInterface.prototype.confirmVote = function (broadcast, voterID, susID) {
-
-  };
-  MultiInterface.prototype.sendChatMessage = function (broadcast, senderID, messageContent) {
-
-  };
-  MultiInterface.prototype.quit = function (broadcast, beanID) {
-
-  };
-  gameAPI = new MultiInterface();
 
   /** Scenes **/
   var menuBalls = [];
@@ -1564,7 +1559,7 @@ function resetGame() {
 
     // Go back to menu is multiplayer is not enabled
 
-    if (false && !parent.isConnected) {
+    if (!parent.isConnected) {
       alert("You are not connected to the server. Please try again later.");
       scene = "menu";
       return;
@@ -1596,8 +1591,8 @@ function resetGame() {
       let yPos = i * 60 + 90;
       if (p5.mouseX > 50 && p5.mouseX < p5.width - 100 && p5.mouseY > yPos && p5.mouseY < yPos + 53) {
         p5.fill(50);
-        p5.cursor("pointer"); 
-        if (mouseJustPressed) { 
+        p5.cursor("pointer");
+        if (mouseJustPressed) {
           if (p5.mouseButton === p5.LEFT) {
             if (!parent.isConnected) {
               alert("You are not connected to the server. Please try again later.");
@@ -1608,13 +1603,13 @@ function resetGame() {
           }
         }
       } else {
-        p5.noFill();
+        p5.noFill(); 
       }
       p5.rect(50, 90 + 60 * i, p5.width - 100, 53, 5);
       p5.fill(255);
 
       p5.noStroke();
-      p5.text(theRoom.name || "[no name]", 65, 122 + 60 * i);
+      p5.text(theRoom.settings.name || "[no name]", 65, 122 + 60 * i);
       p5.text(`${theRoom.playerIds.length}/${theRoom.settings.maxPlayers}`, 300, 122 + 60 * i);
       // if (room.isPublic) {
 
@@ -1675,7 +1670,7 @@ function resetGame() {
     }
 
     /* Update player movement and AI */
-    
+
     for (var i = players.length - 1; i >= 0; i--) {
       var player = players[i];
       player.update();
@@ -1686,11 +1681,11 @@ function resetGame() {
     }
 
     /* Multiplayer position update */
-    
+
     if (isMultiplayer) {
       // Every 12 frames (5fps)
       if (p5.frameCount % 12 == 0) {
-        sendTo("room", `m ${me.x.toFixed(2)} ${me.y.toFixed(2)}`)
+        sendTo("o", `m ${me.x.toFixed(2)} ${me.y.toFixed(2)}`) // o = others
       }
     }
 
@@ -1830,12 +1825,29 @@ function resetGame() {
       }
     } else {
 
-      p5.fill(255, 255, 255);
-      p5.textFont(font.game);
-      p5.text("PRESS X FOR DEBUG MODE", 165, 50);
+      // p5.fill(255, 255, 255);
+      // p5.textFont(font.game);
+      // p5.text("PRESS X FOR DEBUG MODE", 165, 50); /// we know
     }
 
   };
+
+  var lastPingSent = 0;
+  var lastPongReceived = 0;
+  var pingPongDiff = 0;
+  function showFpsAndPingInfo() {
+    p5.textFont(font.monospace, 12);
+    p5.fill(255, 255, 255);
+    p5.textAlign(p5.LEFT, p5.TOP);
+    p5.text(p5.frameRate().toFixed(0) + "fps", 5, 5);
+    p5.text(pingPongDiff + "ms", 5, 18);
+    p5.textAlign(p5.CENTER, p5.CENTER);
+    
+    if (parent.isConnected && p5.frameCount % 60 === 0) {
+      lastPingSent = new Date().getTime();
+      sendTo("server", "ping")
+    }
+  }
 
   /** Create instances **/
   // Cafeteria and connecting junctions
@@ -1963,7 +1975,7 @@ function resetGame() {
     var magni = 200;
     var centerX = 728;
     var centerY = 187;
-    me = new Bean(myProfile.id || "me", myProfile?.nickname || myProfile.id || "Me", false, false, 448, 187);
+    me = new Bean(myProfile.id || "me", myProfile?.name || myProfile.id || "Me", false, false, 448, 187);
     ///
 
 
@@ -2070,11 +2082,9 @@ function resetGame() {
     update_buttons();
     mouseJustPressed = false;
     keyJustPressed = false;
-    p5.textFont(font.monospace);
-    p5.fill(255, 255, 255);
-    p5.textAlign(p5.LEFT, p5.TOP);
-    p5.text(p5.frameRate().toFixed(1), 5, 5);
-    p5.textAlign(p5.CENTER, p5.CENTER);
+
+
+    showFpsAndPingInfo()
 
 
   };

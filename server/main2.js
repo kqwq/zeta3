@@ -1,6 +1,6 @@
 import fs, { existsSync } from 'fs'
 import { createProgram, updateProgram, getSpinoffs, getProgram } from './ka_utils.js'
-import { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector, getPlayer, sendToAllPeersInRoom } from './game.js'
+import { onPeerConnect, onPeerData, onPeerDisconnect, cheatDetector, getPlayer, sendToAllPeersInRoom, sendToOtherPeersInRoom } from './game.js'
 import fetch from 'node-fetch'
 import wrtc from 'wrtc'
 import Peer from 'simple-peer'
@@ -174,10 +174,14 @@ async function createNewPeer(initialOffer, offerLineNumber, s2) {
         return
       }
 
-      // Check if sending to entire room (including self), to a specific peer, or to the server
+      // Check if sending to entire room (including self), room (excluding self), to a specific peer, or to the server
       if (data.slice(1, 5) == "room") {
-        // TO:ROOM
+        // TO:ROOM INCLUDING SELF
         sendToAllPeersInRoom(peerData, getPlayer(srcId).rid, `~${data.slice(5)}${srcId}`)
+        return
+      } else if (data.slice(1, 2) == "o") {
+        // TO:ALL EXCLUDING SELF
+        sendToOtherPeersInRoom(peerData, getPlayer(srcId).rid, srcId, `~${data.slice(2)}${srcId}`)
         return
       }
       let programId = data.slice(1, 17)
